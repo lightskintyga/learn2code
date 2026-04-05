@@ -1,0 +1,106 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    @apply m-0 p-0 font-sans text-ui-text bg-ui-bg;
+    overflow: hidden;
+  }
+
+  #root {
+    @apply w-screen h-screen;
+  }
+}
+
+@layer components {
+  /* Blockly workspace customization */
+  .blocklyToolboxDiv {
+    @apply bg-white border-r border-ui-border;
+    width: 64px !important;
+  }
+
+  .blocklyFlyout {
+    @apply bg-gray-50;
+  }
+
+  .blocklyTreeRow {
+    @apply py-2 px-1;
+  }
+
+  .blocklyTreeLabel {
+    @apply text-xs font-bold;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-gray-100 rounded;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-gray-300 rounded;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-gray-400;
+  }
+
+  /* Stage canvas */
+  .stage-canvas {
+    image-rendering: pixelated;
+  }
+
+  /* Scratch-like button */
+  .scratch-btn {
+    @apply px-4 py-2 rounded-full font-bold text-white transition-all duration-200;
+    @apply hover:brightness-110 active:brightness-90;
+  }
+
+  .scratch-btn-primary {
+    @apply scratch-btn bg-scratch-purple hover:bg-scratch-purple-dark;
+  }
+
+  .scratch-btn-secondary {
+    @apply scratch-btn bg-scratch-blue hover:bg-scratch-blue-dark;
+  }
+
+  .scratch-btn-green {
+    @apply scratch-btn bg-scratch-green hover:bg-scratch-green-dark;
+  }
+
+  /* Tab styles */
+  .editor-tab {
+    @apply px-4 py-2 rounded-t-lg font-bold text-sm cursor-pointer transition-all;
+  }
+
+  .editor-tab-active {
+    @apply editor-tab bg-white text-scratch-purple border-t-2 border-scratch-purple;
+  }
+
+  .editor-tab-inactive {
+    @apply editor-tab bg-ui-tab-inactive text-ui-text-light hover:bg-white/50;
+  }
+
+  /* Sprite thumbnail */
+  .sprite-thumb {
+    @apply w-20 h-20 border-2 rounded-lg cursor-pointer transition-all;
+    @apply hover:border-scratch-blue;
+  }
+
+  .sprite-thumb-active {
+    @apply sprite-thumb border-scratch-blue bg-blue-50;
+  }
+
+  .sprite-thumb-inactive {
+    @apply sprite-thumb border-gray-200 bg-white;
+  }
+}
