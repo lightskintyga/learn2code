@@ -5,11 +5,13 @@
 @layer base {
   * {
     box-sizing: border-box;
+    font-family: "Nunito", sans-serif;
   }
 
   body {
     @apply m-0 p-0 font-sans text-ui-text bg-ui-bg;
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
   }
 
   #root {
@@ -21,15 +23,109 @@
   /* Blockly workspace customization */
   .blocklyToolboxDiv {
     @apply bg-white border-r border-ui-border;
-    width: 64px !important;
+    width: 160px !important;
+    overflow: visible !important;
+    min-width: 160px !important;
+    max-width: 160px !important;
   }
 
-  .blocklyFlyout {
-    @apply bg-gray-50;
+  .blocklyTreeRoot {
+    width: 160px !important;
+    overflow: visible !important;
+    padding: 4px 0 !important;
   }
 
   .blocklyTreeRow {
-    @apply py-2 px-1;
+    @apply py-2.5 px-3;
+    min-width: 160px !important;
+    overflow: visible !important;
+    height: auto !important;
+    min-height: 32px !important;
+  }
+
+  .blocklyTreeRowContentContainer {
+    width: 100% !important;
+    overflow: visible !important;
+  }
+
+  .blocklyToolboxCategory {
+    overflow: visible !important;
+  }
+
+  .blocklyTreeLabel {
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    white-space: normal !important;
+    overflow: visible !important;
+    word-wrap: break-word !important;
+    line-height: 1.3;
+    width: 100% !important;
+  }
+
+  /* SVG текст в тулбоксе */
+  .blocklyToolboxDiv svg text {
+    white-space: normal !important;
+    overflow: visible !important;
+  }
+
+  .blocklyFlyout {
+    min-width: 220px !important;
+    box-shadow: -2px 0 8px rgba(0,0,0,0.1) !important;
+  }
+
+  .blocklyFlyoutBackground {
+    fill: #f9f9f9 !important;
+  }
+
+  /* Скрываем флайаут полностью когда он закрыт */
+  .blocklyFlyout[display="none"],
+  .blocklyFlyout[style*="display: none"],
+  .blocklyFlyout[style*="width: 0px"] {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+  }
+
+  /* Скрываем флайаут когда toolbox ничего не выбрано */
+  .blocklyToolboxDiv ~ .blocklyFlyout {
+    transition: transform 0.2s ease, opacity 0.2s ease;
+  }
+
+  /* Скрываем скроллбар флайаута всегда */
+  .blocklyFlyoutScrollbar,
+  .blocklyFlyoutScrollbar[display="none"],
+  svg.blocklyFlyoutScrollbar,
+  .blocklyFlyoutScrollbarVertical,
+  svg.blocklyScrollbarVertical.blocklyFlyoutScrollbar,
+  .blocklyFlyoutScrollbar.blocklyScrollbarVertical,
+  svg.blocklyFlyoutScrollbar.blocklyScrollbarVertical[display="none"] {
+    display: none !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    visibility: hidden !important;
+    width: 0 !important;
+    height: 0 !important;
+  }
+  
+  /* Дополнительно скрываем любые SVG скроллбары внутри флайаута */
+  .blocklyFlyout svg.blocklyScrollbarVertical,
+  .blocklyFlyout svg.blocklyFlyoutScrollbar {
+    display: none !important;
+  }
+
+  .blocklyScrollbarHorizontal,
+  .blocklyScrollbarVertical {
+    opacity: 0 !important;
+    pointer-events: none !important;
+    display: none !important;
+  }
+
+  .blocklyFlyoutContents {
+    pointer-events: auto !important;
+  }
+
+  .blocklyTreeRow {
+    @apply py-2 px-2;
   }
 
   .blocklyTreeLabel {
