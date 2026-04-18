@@ -224,18 +224,21 @@ javascriptGenerator.forBlock['sound_volume'] = function () {
 // ========== События ==========
 javascriptGenerator.forBlock['event_whenflagclicked'] = function (block: Blockly.Block) {
     const code = javascriptGenerator.statementToCode(block, 'STACK') || '';
-    return `runtime.onFlagClicked(async function() {\n${code}});\n`;
+    return `runtime.onFlagClicked(async function() {
+${code}});\n`;
 };
 
 javascriptGenerator.forBlock['event_whenkeypressed'] = function (block: Blockly.Block) {
     const key = block.getFieldValue('KEY_OPTION');
     const code = javascriptGenerator.statementToCode(block, 'STACK') || '';
-    return `runtime.onKeyPressed('${key}', async function() {\n${code}});\n`;
+    return `runtime.onKeyPressed('${key}', async function() {
+${code}});\n`;
 };
 
 javascriptGenerator.forBlock['event_whenthisspriteclicked'] = function (block: Blockly.Block) {
     const code = javascriptGenerator.statementToCode(block, 'STACK') || '';
-    return `runtime.onSpriteClicked(sprite, async function() {\n${code}});\n`;
+    return `runtime.onSpriteClicked(sprite, async function() {
+${code}});\n`;
 };
 
 javascriptGenerator.forBlock['event_broadcast'] = function (block: Blockly.Block) {
@@ -251,7 +254,8 @@ javascriptGenerator.forBlock['event_broadcastandwait'] = function (block: Blockl
 javascriptGenerator.forBlock['event_whenbroadcastreceived'] = function (block: Blockly.Block) {
     const msg = block.getFieldValue('BROADCAST_OPTION');
     const code = javascriptGenerator.statementToCode(block, 'STACK') || '';
-    return `runtime.onBroadcastReceived('${msg}', async function() {\n${code}});\n`;
+    return `runtime.onBroadcastReceived('${msg}', async function() {
+${code}});\n`;
 };
 
 // ========== Управление ==========
@@ -311,7 +315,8 @@ javascriptGenerator.forBlock['control_delete_this_clone'] = function () {
 
 javascriptGenerator.forBlock['control_start_as_clone'] = function (block: Blockly.Block) {
     const code = javascriptGenerator.statementToCode(block, 'STACK') || '';
-    return `runtime.onCloneStart(async function() {\n${code}});\n`;
+    return `runtime.onCloneStart(async function() {
+${code}});\n`;
 };
 
 // ========== Сенсоры ==========

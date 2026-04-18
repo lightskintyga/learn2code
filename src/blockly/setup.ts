@@ -11,6 +11,8 @@ export const initBlocklyWorkspace = (
         toolbox: toolboxConfig,
         theme: ScratchTheme,
         renderer: 'zelos', // Scratch-подобный рендерер
+        rtl: false,
+        scrollbars: true,
         grid: {
             spacing: 40,
             length: 2,
@@ -57,11 +59,57 @@ export const initBlocklyWorkspace = (
 
     // Слушатель изменений
     if (onChange) {
-        workspace.addChangeListener(() => {
+        workspace.addChangeListener((event) => {
+            if (!event || event.isUiEvent) return;
             const xml = Blockly.Xml.workspaceToDom(workspace);
             const xmlText = Blockly.Xml.domToText(xml);
             onChange(xmlText);
         });
+    }
+
+    // Следим за изменениями флайаута и скрываем/показываем скроллбар
+    const flyout = workspace.getFlyout();
+    if (flyout) {
+        const flyoutEl = document.querySelector('.blocklyFlyout');
+        const scrollbarEl = document.querySelector('.blocklyFlyoutScrollbar');
+        
+        if (flyoutEl && scrollbarEl) {
+            const observer = new MutationObserver((mutations) => {
+                mutations.forEach((mutation) => {
+                    if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
+                        const display = (flyoutEl as HTMLElement).style.display;
+                        const width = (flyoutEl as HTMLElement).style.width;
+                        const isHidden = display === 'none' || width === '0px' || !width;
+                        
+                        (scrollbarEl as HTMLElement).style.display = isHidden ? 'none' : '';
+                        (scrollbarEl as HTMLElement).style.visibility = isHidden ? 'hidden' : 'visible';
+                    }
+                });
+            });
+            
+            observer.observe(flyoutEl, { attributes: true, attributeFilter: ['style'] });
+        }
+    }
+
+    // Закрытие категории по двойному клику
+    const toolbox = workspace.getToolbox();
+    const flyoutObj = workspace.getFlyout() as any;
+    
+    if (toolbox && flyoutObj) {
+        const toolboxDiv = document.querySelector('.blocklyToolboxDiv');
+        if (toolboxDiv) {
+            toolboxDiv.addEventListener('dblclick', (e) => {
+                const target = e.target as HTMLElement;
+                const row = target.closest('.blocklyTreeRow') as HTMLElement | null;
+                if (!row) return;
+                
+                const item = toolbox.getSelectedItem();
+                if (item) {
+                    flyoutObj?.hide();
+                    toolbox.clearSelection();
+                }
+            });
+        }
     }
 
     return workspace;

@@ -7,7 +7,14 @@ Blockly.Blocks['event_whenflagclicked'] = {
         this.jsonInit({
             type: 'event_whenflagclicked',
             message0: 'когда ⚑ нажат',
-            nextStatement: null,
+            args0: [],
+            message1: '%1',
+            args1: [
+                {
+                    type: 'input_statement',
+                    name: 'STACK',
+                },
+            ],
             style: 'event_blocks',
             tooltip: 'Запустить при нажатии зелёного флага',
             hat: 'cap',
@@ -44,7 +51,13 @@ Blockly.Blocks['event_whenkeypressed'] = {
                     ],
                 },
             ],
-            nextStatement: null,
+            message1: '%1',
+            args1: [
+                {
+                    type: 'input_statement',
+                    name: 'STACK',
+                },
+            ],
             style: 'event_blocks',
             tooltip: 'Запустить при нажатии клавиши',
         });
@@ -56,7 +69,13 @@ Blockly.Blocks['event_whenthisspriteclicked'] = {
         this.jsonInit({
             type: 'event_whenthisspriteclicked',
             message0: 'когда спрайт нажат',
-            nextStatement: null,
+            message1: '%1',
+            args1: [
+                {
+                    type: 'input_statement',
+                    name: 'STACK',
+                },
+            ],
             style: 'event_blocks',
             tooltip: 'Запустить при нажатии на спрайт',
         });
@@ -68,7 +87,6 @@ Blockly.Blocks['event_whenstageclicked'] = {
         this.jsonInit({
             type: 'event_whenstageclicked',
             message0: 'когда сцена нажата',
-            nextStatement: null,
             style: 'event_blocks',
             tooltip: 'Запустить при нажатии на сцену',
         });
@@ -87,7 +105,13 @@ Blockly.Blocks['event_whenbackdropswitchesto'] = {
                     options: [['backdrop1', 'backdrop1']],
                 },
             ],
-            nextStatement: null,
+            message1: '%1',
+            args1: [
+                {
+                    type: 'input_statement',
+                    name: 'STACK',
+                },
+            ],
             style: 'event_blocks',
             tooltip: 'Запустить при смене фона',
         });
@@ -110,7 +134,6 @@ Blockly.Blocks['event_whengreaterthan'] = {
                 },
                 { type: 'input_value', name: 'VALUE', check: 'Number' },
             ],
-            nextStatement: null,
             style: 'event_blocks',
             tooltip: 'Запустить когда значение превысит порог',
         });
@@ -129,7 +152,13 @@ Blockly.Blocks['event_whenbroadcastreceived'] = {
                     options: [['сообщение1', 'message1']],
                 },
             ],
-            nextStatement: null,
+            message1: '%1',
+            args1: [
+                {
+                    type: 'input_statement',
+                    name: 'STACK',
+                },
+            ],
             style: 'event_blocks',
             tooltip: 'Запустить при получении сообщения',
         });
