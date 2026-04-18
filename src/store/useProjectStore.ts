@@ -3,20 +3,26 @@ import { persist } from 'zustand/middleware';
 import { v4 as uuidv4 } from 'uuid';
 import { Project, SpriteTarget, StageTarget, Costume, Sound, ScratchVariable, ScratchList } from '@/types';
 import { createDefaultProject, createDefaultSprite, createDefaultStage } from '@/utils/spriteDefaults';
+import { LOCAL_STORAGE_KEYS } from '@/utils/constants';
 
 interface ProjectStore {
     // Текущий проект
     currentProject: Project | null;
     // Список проектов пользователя
     projects: Project[];
+    // Активный пользователь
+    activeUserId: string | null;
     // Флаг несохранённых изменений
     isDirty: boolean;
 
     // Проект
+    setActiveUser: (userId: string | null) => void;
+    hydrateProjectsForUser: (userId: string) => void;
     createProject: (name: string, authorId: string, authorName: string) => Project;
     loadProject: (projectId: string) => void;
     saveProject: () => void;
     deleteProject: (projectId: string) => void;
+    clearCurrentProject: () => void;
     setProjectName: (name: string) => void;
     importProject: (json: string) => void;
     exportProject: () => string | null;
@@ -57,20 +63,46 @@ interface ProjectStore {
     updateList: (targetId: string, listId: string, value: (string | number)[]) => void;
 }
 
+const getUserProjectsKey = (userId: string) => `${LOCAL_STORAGE_KEYS.PROJECTS}_${userId}`;
+
+const readUserProjects = (userId: string): Project[] => {
+    const raw = localStorage.getItem(getUserProjectsKey(userId));
+    return raw ? JSON.parse(raw) : [];
+};
+
+const writeUserProjects = (userId: string, projects: Project[]) => {
+    localStorage.setItem(getUserProjectsKey(userId), JSON.stringify(projects));
+};
+
 export const useProjectStore = create<ProjectStore>()(
     persist(
         (set, get) => ({
             currentProject: null,
             projects: [],
+            activeUserId: null,
             isDirty: false,
+
+            setActiveUser: (userId) => {
+                set({ activeUserId: userId });
+            },
+
+            hydrateProjectsForUser: (userId) => {
+                const projects = readUserProjects(userId);
+                set({ activeUserId: userId, projects, currentProject: null, isDirty: false });
+            },
 
             createProject: (name, authorId, authorName) => {
                 const project = createDefaultProject(name, authorId, authorName);
-                set(state => ({
-                    currentProject: project,
-                    projects: [...state.projects, project],
-                    isDirty: false,
-                }));
+                set(state => {
+                    const projects = [...state.projects.filter(p => p.id !== project.id), project];
+                    writeUserProjects(authorId, projects.filter(p => p.authorId === authorId));
+                    return {
+                        currentProject: project,
+                        projects,
+                        activeUserId: authorId,
+                        isDirty: false,
+                    };
+                });
 
                 // TODO: API запрос для создания проекта на сервере
                 // api.post('/projects', project);
@@ -82,7 +114,7 @@ export const useProjectStore = create<ProjectStore>()(
                 const { projects } = get();
                 const project = projects.find(p => p.id === projectId);
                 if (project) {
-                    set({ currentProject: { ...project }, isDirty: false });
+                    set({ currentProject: { ...project }, isDirty: false, activeUserId: project.authorId });
                 }
 
                 // TODO: Загрузка с сервера
@@ -112,20 +144,29 @@ export const useProjectStore = create<ProjectStore>()(
                     projects: newProjects,
                     isDirty: false,
                 });
+                writeUserProjects(updated.authorId, newProjects.filter(p => p.authorId === updated.authorId));
 
                 // TODO: Сохранение на сервер
                 // api.put(`/projects/${updated.id}`, updated);
             },
 
             deleteProject: (projectId) => {
+                const { projects, currentProject } = get();
+                const target = projects.find(p => p.id === projectId);
                 set(state => ({
                     projects: state.projects.filter(p => p.id !== projectId),
                     currentProject: state.currentProject?.id === projectId ? null : state.currentProject,
                 }));
 
+                if (target) {
+                    writeUserProjects(target.authorId, projects.filter(p => p.id !== projectId && p.authorId === target.authorId));
+                }
+
                 // TODO: Удаление на сервере
                 // api.delete(`/projects/${projectId}`);
             },
+
+            clearCurrentProject: () => set({ currentProject: null, isDirty: false }),
 
             setProjectName: (name) => {
                 set(state => {
@@ -140,14 +181,20 @@ export const useProjectStore = create<ProjectStore>()(
             importProject: (json) => {
                 try {
                     const project = JSON.parse(json) as Project;
+                    const authorId = get().activeUserId || project.authorId;
                     project.id = uuidv4(); // Новый ID при импорте
+                    project.authorId = authorId;
                     project.createdAt = new Date().toISOString();
                     project.updatedAt = new Date().toISOString();
-                    set(state => ({
-                        currentProject: project,
-                        projects: [...state.projects, project],
-                        isDirty: false,
-                    }));
+                    set(state => {
+                        const projects = [...state.projects, project];
+                        if (authorId) writeUserProjects(authorId, projects.filter(p => p.authorId === authorId));
+                        return {
+                            currentProject: project,
+                            projects,
+                            isDirty: false,
+                        };
+                    });
                 } catch (e) {
                     console.error('Failed to import project:', e);
                 }
@@ -160,7 +207,13 @@ export const useProjectStore = create<ProjectStore>()(
             },
 
             getAllProjects: (userId) => {
-                return get().projects.filter(p => p.authorId === userId);
+                const stateProjects = get().projects.filter(p => p.authorId === userId);
+                const localProjects = readUserProjects(userId);
+                const merged = [...localProjects, ...stateProjects].reduce<Project[]>((acc, project) => {
+                    if (!acc.some(p => p.id === project.id)) acc.push(project);
+                    return acc;
+                }, []);
+                return merged;
             },
 
             // Спрайты
@@ -168,11 +221,17 @@ export const useProjectStore = create<ProjectStore>()(
                 const sprite = createDefaultSprite(partial);
                 set(state => {
                     if (!state.currentProject) return state;
+                    const currentProject = {
+                        ...state.currentProject,
+                        sprites: [...state.currentProject.sprites, sprite],
+                    };
+                    const projects = state.projects.map(p => p.id === currentProject.id ? currentProject : p);
+                    if (currentProject.authorId) {
+                        writeUserProjects(currentProject.authorId, projects.filter(p => p.authorId === currentProject.authorId));
+                    }
                     return {
-                        currentProject: {
-                            ...state.currentProject,
-                            sprites: [...state.currentProject.sprites, sprite],
-                        },
+                        currentProject,
+                        projects,
                         isDirty: true,
                     };
                 });
@@ -182,11 +241,17 @@ export const useProjectStore = create<ProjectStore>()(
             removeSprite: (spriteId) => {
                 set(state => {
                     if (!state.currentProject) return state;
+                    const currentProject = {
+                        ...state.currentProject,
+                        sprites: state.currentProject.sprites.filter(s => s.id !== spriteId),
+                    };
+                    const projects = state.projects.map(p => p.id === currentProject.id ? currentProject : p);
+                    if (currentProject.authorId) {
+                        writeUserProjects(currentProject.authorId, projects.filter(p => p.authorId === currentProject.authorId));
+                    }
                     return {
-                        currentProject: {
-                            ...state.currentProject,
-                            sprites: state.currentProject.sprites.filter(s => s.id !== spriteId),
-                        },
+                        currentProject,
+                        projects,
                         isDirty: true,
                     };
                 });
@@ -209,11 +274,17 @@ export const useProjectStore = create<ProjectStore>()(
 
                 set(state => {
                     if (!state.currentProject) return state;
+                    const current = {
+                        ...state.currentProject,
+                        sprites: [...state.currentProject.sprites, duplicate],
+                    };
+                    const projects = state.projects.map(p => p.id === current.id ? current : p);
+                    if (current.authorId) {
+                        writeUserProjects(current.authorId, projects.filter(p => p.authorId === current.authorId));
+                    }
                     return {
-                        currentProject: {
-                            ...state.currentProject,
-                            sprites: [...state.currentProject.sprites, duplicate],
-                        },
+                        currentProject: current,
+                        projects,
                         isDirty: true,
                     };
                 });
@@ -222,13 +293,19 @@ export const useProjectStore = create<ProjectStore>()(
             updateSprite: (spriteId, updates) => {
                 set(state => {
                     if (!state.currentProject) return state;
+                    const currentProject = {
+                        ...state.currentProject,
+                        sprites: state.currentProject.sprites.map(s =>
+                            s.id === spriteId ? { ...s, ...updates } : s
+                        ),
+                    };
+                    const projects = state.projects.map(p => p.id === currentProject.id ? currentProject : p);
+                    if (currentProject.authorId) {
+                        writeUserProjects(currentProject.authorId, projects.filter(p => p.authorId === currentProject.authorId));
+                    }
                     return {
-                        currentProject: {
-                            ...state.currentProject,
-                            sprites: state.currentProject.sprites.map(s =>
-                                s.id === spriteId ? { ...s, ...updates } : s
-                            ),
-                        },
+                        currentProject,
+                        projects,
                         isDirty: true,
                     };
                 });
@@ -241,11 +318,17 @@ export const useProjectStore = create<ProjectStore>()(
             updateStage: (updates) => {
                 set(state => {
                     if (!state.currentProject) return state;
+                    const currentProject = {
+                        ...state.currentProject,
+                        stage: { ...state.currentProject.stage, ...updates },
+                    };
+                    const projects = state.projects.map(p => p.id === currentProject.id ? currentProject : p);
+                    if (currentProject.authorId) {
+                        writeUserProjects(currentProject.authorId, projects.filter(p => p.authorId === currentProject.authorId));
+                    }
                     return {
-                        currentProject: {
-                            ...state.currentProject,
-                            stage: { ...state.currentProject.stage, ...updates },
-                        },
+                        currentProject,
+                        projects,
                         isDirty: true,
                     };
                 });
@@ -434,7 +517,12 @@ export const useProjectStore = create<ProjectStore>()(
                         );
                     }
 
-                    return { currentProject: project, isDirty: true };
+                    const projects = state.projects.map(p => p.id === project.id ? project : p);
+                    if (project.authorId) {
+                        writeUserProjects(project.authorId, projects.filter(p => p.authorId === project.authorId));
+                    }
+
+                    return { currentProject: project, projects, isDirty: true };
                 });
             },
 

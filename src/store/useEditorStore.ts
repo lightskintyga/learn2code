@@ -13,6 +13,7 @@ interface EditorStore {
     showSoundLibrary: boolean;
     showCostumeLibrary: boolean;
     isFullscreen: boolean;
+    toolboxCategoryOpen: string | null;
 
     setActiveTab: (tab: EditorTab) => void;
     selectSprite: (spriteId: string) => void;
@@ -27,6 +28,7 @@ interface EditorStore {
     setShowBackdropLibrary: (show: boolean) => void;
     setShowSoundLibrary: (show: boolean) => void;
     setShowCostumeLibrary: (show: boolean) => void;
+    setToolboxCategoryOpen: (category: string | null) => void;
     toggleFullscreen: () => void;
 }
 
@@ -42,6 +44,7 @@ export const useEditorStore = create<EditorStore>((set) => ({
     showSoundLibrary: false,
     showCostumeLibrary: false,
     isFullscreen: false,
+    toolboxCategoryOpen: null,
 
     setActiveTab: (tab) => set({ activeTab: tab }),
 
@@ -74,6 +77,8 @@ export const useEditorStore = create<EditorStore>((set) => ({
     setShowSoundLibrary: (show) => set({ showSoundLibrary: show }),
 
     setShowCostumeLibrary: (show) => set({ showCostumeLibrary: show }),
+
+    setToolboxCategoryOpen: (category) => set({ toolboxCategoryOpen: category }),
 
     toggleFullscreen: () => set(state => ({ isFullscreen: !state.isFullscreen })),
 }));
