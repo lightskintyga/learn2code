@@ -1,3 +1,5 @@
+import * as Blockly from 'blockly';
+import { javascriptGenerator } from '@/blockly/generators/javascript';
 import { SpriteTarget, StageTarget, Project } from '@/types';
 import { STAGE_WIDTH, STAGE_HEIGHT } from '@/utils/constants';
 
@@ -51,6 +53,7 @@ export class Runtime {
     private onStateChange: ((state: RuntimeState) => void) | null = null;
     private animationFrameId: number | null = null;
     private yieldCounter: number = 0;
+    private project: Project | null = null;
 
     constructor() {
         this.state = this.createInitialState();
@@ -77,6 +80,7 @@ export class Runtime {
     }
 
     loadProject(project: Project) {
+        this.project = project;
         this.state = this.createInitialState();
 
         // Загружаем сцену
@@ -150,23 +154,41 @@ export class Runtime {
         return this.running;
     }
 
-    // Запуск по зелёному флагу
-    async start() {
-        this.running = true;
-        this.timerStart = Date.now();
-        this.eventHandlers.clear();
-        this.activeThreads.clear();
+    // Запуск по зелёному флагу — неблокирующий
+    start(): Promise<void> {
+        return new Promise((resolve) => {
+            this.running = true;
+            this.timerStart = Date.now();
+            this.eventHandlers.clear();
+            this.activeThreads.clear();
 
-        // Запускаем обработчики зелёного флага
-        const handlers = this.eventHandlers.get('flag_clicked') || [];
-        for (const handler of handlers) {
-            const thread = handler().catch(e => console.error('Thread error:', e));
-            this.activeThreads.add(thread);
-            thread.finally(() => this.activeThreads.delete(thread));
-        }
+            if (this.project) {
+                this.registerProjectScripts(this.project);
+            }
 
-        this.startRenderLoop();
-        this.notifyStateChange();
+            // Запускаем обработчики зелёного флага
+            const handlers = this.eventHandlers.get('flag_clicked') || [];
+            for (const handler of handlers) {
+                const thread = handler().catch(e => console.error('Thread error:', e));
+                this.activeThreads.add(thread);
+                thread.finally(() => {
+                    this.activeThreads.delete(thread);
+                    // Когда все потоки завершены, останавливаем
+                    if (this.activeThreads.size === 0 && this.running) {
+                        this.stop();
+                        resolve();
+                    }
+                });
+            }
+
+            this.startRenderLoop();
+            this.notifyStateChange();
+            
+            // Если нет обработчиков, сразу резолвим
+            if (handlers.length === 0) {
+                resolve();
+            }
+        });
     }
 
     stop() {
@@ -218,6 +240,69 @@ export class Runtime {
         const handlers = this.eventHandlers.get('flag_clicked') || [];
         handlers.push(handler);
         this.eventHandlers.set('flag_clicked', handlers);
+    }
+
+    private registerProjectScripts(project: Project) {
+        const registerTarget = (blocksXml: string, spriteId: string) => {
+            if (!blocksXml) return;
+            try {
+                const xml = Blockly.utils.xml.textToDom(blocksXml);
+                const workspace = new Blockly.Workspace();
+                Blockly.Xml.domToWorkspace(xml, workspace);
+                const code = javascriptGenerator.workspaceToCode(workspace);
+                workspace.dispose();
+                if (code.trim()) {
+                    this.executeGeneratedCode(code, spriteId);
+                }
+            } catch (e) {
+                console.error('Failed to register project scripts:', e);
+            }
+        };
+
+        registerTarget(project.stage.blocks, project.stage.id);
+        project.sprites.forEach(sprite => registerTarget(sprite.blocks, sprite.id));
+    }
+
+    private executeGeneratedCode(code: string, spriteId: string) {
+        try {
+            const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor as new (...args: string[]) => (...fnArgs: unknown[]) => Promise<void>;
+            const runtime = this;
+            const sprite = this.getSpriteApi(spriteId);
+            const stage = this.getStageApi();
+            if (!sprite || !stage) return;
+
+            const fn = new AsyncFunction('runtime', 'sprite', 'stage', code);
+            const thread = fn(runtime, sprite, stage).catch(e => console.error('Generated code error:', e));
+            this.activeThreads.add(thread);
+            thread.finally(() => this.activeThreads.delete(thread));
+        } catch (e) {
+            console.error('Failed to execute generated code:', e);
+        }
+    }
+
+    private getStageApi() {
+        const runtime = this;
+        return {
+            get currentBackdrop() { return runtime.state.stage.currentBackdrop; },
+            switchBackdropTo(name: string) {
+                const idx = runtime.project?.stage.costumes.findIndex(c => c.name === name) ?? -1;
+                if (idx !== -1) {
+                    runtime.state.stage.currentBackdrop = idx;
+                    runtime.notifyStateChange();
+                }
+            },
+            nextBackdrop() {
+                const count = runtime.project?.stage.costumes.length || 0;
+                if (count > 0) {
+                    runtime.state.stage.currentBackdrop = (runtime.state.stage.currentBackdrop + 1) % count;
+                    runtime.notifyStateChange();
+                }
+            },
+            backdrop: {
+                get number() { return runtime.state.stage.currentBackdrop + 1; },
+                get name() { return runtime.project?.stage.costumes[runtime.state.stage.currentBackdrop]?.name || ''; },
+            },
+        };
     }
 
     onKeyPressed(key: string, handler: EventHandler) {
