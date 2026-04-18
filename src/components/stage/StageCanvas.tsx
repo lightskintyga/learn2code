@@ -46,15 +46,14 @@ const StageCanvas: React.FC = () => {
         });
     }, []);
 
-    // Рендеринг сцены
-    const render = useCallback(async () => {
+    // Рендеринг сцены — без useCallback, всегда берём актуальное состояние
+    const render = async () => {
         const canvas = canvasRef.current;
         if (!canvas) return;
 
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
 
-        const state = runtimeState || runtime.getState();
         const project = currentProject;
         if (!project) return;
 
@@ -77,8 +76,10 @@ const StageCanvas: React.FC = () => {
         }
 
         // Определяем спрайты для рисования
-        const spritesToDraw = isRunning && state.sprites.length > 0
-            ? state.sprites
+        // При выполнении берём актуальные позиции из runtime
+        const currentState = isRunning ? runtime.getState() : null;
+        const spritesToDraw = currentState && currentState.sprites.length > 0
+            ? currentState.sprites
             : project.sprites.map(s => ({
                 id: s.id,
                 name: s.name,
@@ -134,8 +135,9 @@ const StageCanvas: React.FC = () => {
                 ctx.scale(scale, scale);
 
                 // Эффекты
-                if (sprite.effects.GHOST) {
-                    ctx.globalAlpha = 1 - Math.min(100, Math.max(0, sprite.effects.GHOST)) / 100;
+                if ('GHOST' in sprite.effects) {
+                    const ghost = sprite.effects.GHOST as number;
+                    ctx.globalAlpha = 1 - Math.min(100, Math.max(0, ghost)) / 100;
                 }
 
                 // Рисуем спрайт по центру
@@ -153,14 +155,31 @@ const StageCanvas: React.FC = () => {
                 // Если не удалось загрузить изображение
             }
         }
-    }, [runtimeState, currentProject, isRunning, loadImage]);
+    };
 
-    // Перерисовка
+    // Перерисовка при изменении проекта (когда не выполняется)
     useEffect(() => {
-        render();
-    }, [render]);
+        if (!isRunning) {
+            render();
+        }
+    }, [currentProject, isRunning]);
+
+    // Анимация когда isRunning — постоянно перерисовываем
+    useEffect(() => {
+        if (!isRunning) return;
+        let animationId: number;
+        const animate = () => {
+            render();
+            animationId = requestAnimationFrame(animate);
+        };
+        animationId = requestAnimationFrame(animate);
+        return () => cancelAnimationFrame(animationId);
+    }, [isRunning]);
 
     // Обработка мыши
+    const [draggedSpriteId, setDraggedSpriteId] = React.useState<string | null>(null);
+    const dragOffsetRef = useRef({ x: 0, y: 0 });
+
     const handleMouseMove = (e: React.MouseEvent) => {
         const canvas = canvasRef.current;
         if (!canvas) return;
@@ -173,12 +192,18 @@ const StageCanvas: React.FC = () => {
         const mouseY = STAGE_HEIGHT / 2 - (e.clientY - rect.top) * scaleY;
 
         runtime.handleMouseMove(mouseX, mouseY);
+
+        if (draggedSpriteId) {
+            const sprite = currentProject?.sprites.find(s => s.id === draggedSpriteId);
+            if (!sprite) return;
+            const nextX = mouseX - dragOffsetRef.current.x;
+            const nextY = mouseY - dragOffsetRef.current.y;
+            runtime.getSpriteApi(sprite.id)?.goToXY(nextX, nextY);
+            useProjectStore.getState().updateSprite(sprite.id, { x: nextX, y: nextY });
+        }
     };
 
-    const handleMouseDown = () => runtime.handleMouseDown();
-    const handleMouseUp = () => runtime.handleMouseUp();
-
-    const handleClick = (e: React.MouseEvent) => {
+    const handleMouseDown = (e: React.MouseEvent) => {
         const canvas = canvasRef.current;
         if (!canvas) return;
 
@@ -189,7 +214,9 @@ const StageCanvas: React.FC = () => {
         const clickX = (e.clientX - rect.left) * scaleX - STAGE_WIDTH / 2;
         const clickY = STAGE_HEIGHT / 2 - (e.clientY - rect.top) * scaleY;
 
-        // Проверяем клик по спрайтам
+        runtime.handleMouseDown();
+
+        // Проверяем клик по спрайтам и начинаем drag
         const project = currentProject;
         if (!project) return;
 
@@ -208,10 +235,20 @@ const StageCanvas: React.FC = () => {
                 clickY >= sprite.y - halfH &&
                 clickY <= sprite.y + halfH
             ) {
+                dragOffsetRef.current = {
+                    x: clickX - sprite.x,
+                    y: clickY - sprite.y,
+                };
+                setDraggedSpriteId(sprite.id);
                 runtime.handleSpriteClick(sprite.id);
                 break;
             }
         }
+    };
+
+    const handleMouseUp = () => {
+        runtime.handleMouseUp();
+        setDraggedSpriteId(null);
     };
 
     // Клавиатура
@@ -253,11 +290,11 @@ const StageCanvas: React.FC = () => {
                 ref={canvasRef}
                 width={STAGE_WIDTH}
                 height={STAGE_HEIGHT}
-                className="w-full h-full stage-canvas"
+                className="w-full h-full stage-canvas cursor-pointer"
                 onMouseMove={handleMouseMove}
                 onMouseDown={handleMouseDown}
                 onMouseUp={handleMouseUp}
-                onClick={handleClick}
+                onMouseLeave={handleMouseUp}
                 tabIndex={0}
             />
         </div>

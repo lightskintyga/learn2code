@@ -87,13 +87,13 @@ const SpriteList: React.FC = () => {
             </div>
 
             {/* Кнопки добавления */}
-            <div className="border-t border-ui-border p-2 flex items-center justify-center gap-2">
+            <div className="border-t border-ui-border p-4 flex items-center justify-center gap-2 min-h-[76px]">
                 <button
                     onClick={handleAddSprite}
-                    className="w-10 h-10 bg-scratch-blue text-white rounded-full flex items-center justify-center hover:bg-scratch-blue-dark transition-colors shadow-md"
+                    className="w-11 h-11 bg-scratch-blue text-white rounded-full flex items-center justify-center hover:bg-scratch-blue-dark transition-colors shadow-md shrink-0"
                     title="Добавить спрайт"
                 >
-                    <Plus size={20} />
+                    <Plus size={21} />
                 </button>
             </div>
         </div>

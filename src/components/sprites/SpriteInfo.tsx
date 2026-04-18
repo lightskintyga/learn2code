@@ -13,75 +13,83 @@ const SpriteInfo: React.FC = () => {
     if (!sprite) return null;
 
     return (
-        <div className="bg-white border border-ui-border rounded-lg p-3 text-sm">
-            <div className="flex items-center gap-4 mb-2">
-                <div className="flex items-center gap-2">
-                    <span className="text-gray-500 text-xs">Спрайт</span>
-                    <input
-                        type="text"
-                        value={sprite.name}
-                        onChange={(e) => updateSprite(sprite.id, { name: e.target.value })}
-                        className="border border-gray-300 rounded px-2 py-0.5 text-sm w-28 font-medium"
-                    />
-                </div>
+        <div className="bg-[#F8FAFB] rounded-[12px] p-3 text-sm">
+            {/* Имя спрайта */}
+            <div className="flex items-center gap-2 mb-3">
+                <span className="text-[#6B7280] text-xs font-medium">Спрайт</span>
+                <input
+                    type="text"
+                    value={sprite.name}
+                    onChange={(e) => updateSprite(sprite.id, { name: e.target.value })}
+                    className="border border-[#E0E4EB] rounded-[8px] px-2 py-1 text-sm flex-1 font-medium bg-white focus:ring-2 focus:ring-[#734DE6] focus:border-transparent outline-none"
+                />
+            </div>
 
-                <div className="flex items-center gap-2">
-                    <span className="text-gray-500 text-xs">↔ x</span>
+            {/* Координаты - первая строка */}
+            <div className="flex gap-2 mb-2">
+                {/* X */}
+                <div className="flex items-center gap-1.5 flex-1">
+                    <span className="text-[#6B7280] text-xs whitespace-nowrap">Позиция X</span>
                     <input
                         type="number"
                         value={Math.round(sprite.x)}
                         onChange={(e) => updateSprite(sprite.id, { x: Number(e.target.value) })}
-                        className="border border-gray-300 rounded px-2 py-0.5 text-sm w-16 text-center"
+                        className="border border-[#E0E4EB] rounded-[6px] px-1.5 py-1 text-xs w-full text-center bg-white focus:ring-2 focus:ring-[#734DE6] focus:border-transparent outline-none"
                     />
                 </div>
 
-                <div className="flex items-center gap-2">
-                    <span className="text-gray-500 text-xs">↕ y</span>
+                {/* Y */}
+                <div className="flex items-center gap-1.5 flex-1">
+                    <span className="text-[#6B7280] text-xs whitespace-nowrap">Позиция Y</span>
                     <input
                         type="number"
                         value={Math.round(sprite.y)}
                         onChange={(e) => updateSprite(sprite.id, { y: Number(e.target.value) })}
-                        className="border border-gray-300 rounded px-2 py-0.5 text-sm w-16 text-center"
+                        className="border border-[#E0E4EB] rounded-[6px] px-1.5 py-1 text-xs w-full text-center bg-white focus:ring-2 focus:ring-[#734DE6] focus:border-transparent outline-none"
                     />
                 </div>
             </div>
 
-            <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                    <span className="text-gray-500 text-xs">Показать</span>
-                    <button
-                        onClick={() => updateSprite(sprite.id, { visible: true })}
-                        className={`p-1 rounded ${sprite.visible ? 'bg-blue-100 text-blue-600' : 'text-gray-400'}`}
-                    >
-                        <Eye size={16} />
-                    </button>
-                    <button
-                        onClick={() => updateSprite(sprite.id, { visible: false })}
-                        className={`p-1 rounded ${!sprite.visible ? 'bg-blue-100 text-blue-600' : 'text-gray-400'}`}
-                    >
-                        <EyeOff size={16} />
-                    </button>
-                </div>
-
-                <div className="flex items-center gap-2">
-                    <span className="text-gray-500 text-xs">Размер</span>
+            {/* Размер и направление - вторая строка */}
+            <div className="flex gap-2 mb-3">
+                {/* Размер */}
+                <div className="flex items-center gap-1.5 flex-1">
+                    <span className="text-[#6B7280] text-xs whitespace-nowrap">Размер</span>
                     <input
                         type="number"
                         value={sprite.size}
                         onChange={(e) => updateSprite(sprite.id, { size: Number(e.target.value) })}
-                        className="border border-gray-300 rounded px-2 py-0.5 text-sm w-16 text-center"
+                        className="border border-[#E0E4EB] rounded-[6px] px-1.5 py-1 text-xs w-full text-center bg-white focus:ring-2 focus:ring-[#734DE6] focus:border-transparent outline-none"
                     />
                 </div>
 
-                <div className="flex items-center gap-2">
-                    <span className="text-gray-500 text-xs">Направление</span>
+                {/* Направление */}
+                <div className="flex items-center gap-1.5 flex-1">
+                    <span className="text-[#6B7280] text-xs whitespace-nowrap">Направл.</span>
                     <input
                         type="number"
                         value={Math.round(sprite.direction)}
                         onChange={(e) => updateSprite(sprite.id, { direction: Number(e.target.value) })}
-                        className="border border-gray-300 rounded px-2 py-0.5 text-sm w-16 text-center"
+                        className="border border-[#E0E4EB] rounded-[6px] px-1.5 py-1 text-xs w-full text-center bg-white focus:ring-2 focus:ring-[#734DE6] focus:border-transparent outline-none"
                     />
                 </div>
+            </div>
+
+            {/* Видимость */}
+            <div className="flex items-center gap-2">
+                <span className="text-[#6B7280] text-xs">Показать:</span>
+                <button
+                    onClick={() => updateSprite(sprite.id, { visible: true })}
+                    className={`p-1 rounded ${sprite.visible ? 'bg-[#734DE6] text-white' : 'text-[#6B7280] hover:bg-gray-100'}`}
+                >
+                    <Eye size={16} />
+                </button>
+                <button
+                    onClick={() => updateSprite(sprite.id, { visible: false })}
+                    className={`p-1 rounded ${!sprite.visible ? 'bg-[#734DE6] text-white' : 'text-[#6B7280] hover:bg-gray-100'}`}
+                >
+                    <EyeOff size={16} />
+                </button>
             </div>
         </div>
     );
