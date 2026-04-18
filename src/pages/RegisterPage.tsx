@@ -2,172 +2,163 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/useAuthStore';
 import { UserRole } from '@/types';
+import closeTagIcon from '../../public/closeTagIcon.svg';
 
 const RegisterPage: React.FC = () => {
     const [form, setForm] = useState({
-        username: '',
+        displayName: '',
         email: '',
         password: '',
-        confirmPassword: '',
-        displayName: '',
         role: 'student' as UserRole,
-        classCode: '',
     });
-
+    const [showPassword, setShowPassword] = useState(false);
     const { register, isLoading, error, clearError } = useAuthStore();
     const navigate = useNavigate();
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         clearError();
-        const success = await register(form);
+        // Generate username from email
+        const username = form.email.split('@')[0];
+        const success = await register({
+            ...form,
+            username,
+            confirmPassword: form.password,
+        });
         if (success) {
             navigate('/');
         }
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-scratch-purple to-blue-600 flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8">
-                <div className="text-center mb-6">
-                    <div className="w-16 h-16 bg-scratch-purple rounded-2xl flex items-center justify-center mx-auto mb-4">
-                        <span className="text-white font-bold text-3xl">S</span>
+        <div className="min-h-screen bg-gradient-to-br from-[#F8FAFB] via-[#F8FAFB] to-[rgba(115,77,230,0.15)] flex items-center justify-center p-4">
+            <div className="bg-white rounded-[20px] shadow-sm border border-[#EEF0F4] w-full max-w-md p-8">
+                {/* Logo */}
+                <div className="flex justify-center mb-4">
+                    <div className="bg-[rgba(115,77,230,0.1)] rounded-[16px] p-3">
+                        <img src={closeTagIcon} alt="Logo" className="w-6 h-6" />
                     </div>
-                    <h1 className="text-2xl font-bold text-gray-800">Регистрация</h1>
-                    <p className="text-gray-500 mt-1">Создайте новый аккаунт</p>
                 </div>
 
-                <form onSubmit={handleSubmit} className="space-y-3">
+                {/* Title */}
+                <div className="text-center mb-6">
+                    <h1 className="text-2xl font-bold text-[#1A1D2D] mb-2">Создай аккаунт</h1>
+                    <p className="text-[#6B7280] text-sm">Присоединяйся к Learn2Code Studio!</p>
+                </div>
+
+                <form onSubmit={handleSubmit} className="space-y-5">
                     {error && (
-                        <div className="bg-red-50 border border-red-200 text-red-600 rounded-lg px-4 py-3 text-sm">
+                        <div className="bg-red-50 border border-red-200 text-red-600 rounded-[12px] px-4 py-3 text-sm">
                             {error}
                         </div>
                     )}
 
-                    {/* Роль */}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Роль</label>
-                        <div className="flex gap-2">
-                            <button
-                                type="button"
-                                onClick={() => setForm(prev => ({ ...prev, role: 'student' }))}
-                                className={`flex-1 py-2 rounded-lg text-sm font-medium border-2 transition-all ${
-                                    form.role === 'student'
-                                        ? 'border-scratch-purple bg-purple-50 text-scratch-purple'
-                                        : 'border-gray-200 text-gray-500 hover:border-gray-300'
-                                }`}
-                            >
-                                👨‍🎓 Ученик
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setForm(prev => ({ ...prev, role: 'teacher' }))}
-                                className={`flex-1 py-2 rounded-lg text-sm font-medium border-2 transition-all ${
-                                    form.role === 'teacher'
-                                        ? 'border-scratch-purple bg-purple-50 text-scratch-purple'
-                                        : 'border-gray-200 text-gray-500 hover:border-gray-300'
-                                }`}
-                            >
-                                👨‍🏫 Преподаватель
-                            </button>
-                        </div>
+                    {/* Role Toggle */}
+                    <div className="bg-[#F8FAFB] rounded-[12px] p-1.5 flex">
+                        <button
+                            type="button"
+                            onClick={() => setForm(prev => ({ ...prev, role: 'student' }))}
+                            className={`flex-1 py-2.5 rounded-[10px] text-sm font-medium transition-all flex items-center justify-center gap-2 ${
+                                form.role === 'student'
+                                    ? 'bg-white text-[#734DE6] shadow-sm'
+                                    : 'text-[#6B7280] hover:text-[#1A1D2D]'
+                            }`}
+                        >
+                            <span>🎓</span> Ученик
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setForm(prev => ({ ...prev, role: 'teacher' }))}
+                            className={`flex-1 py-2.5 rounded-[10px] text-sm font-medium transition-all flex items-center justify-center gap-2 ${
+                                form.role === 'teacher'
+                                    ? 'bg-white text-[#734DE6] shadow-sm'
+                                    : 'text-[#6B7280] hover:text-[#1A1D2D]'
+                            }`}
+                        >
+                            <span>👨‍🏫</span> Преподаватель
+                        </button>
                     </div>
 
+                    {/* Name Field */}
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Отображаемое имя</label>
+                        <label className="block text-sm font-medium text-[#1A1D2D] mb-2">Имя</label>
                         <input
                             type="text"
                             name="displayName"
                             value={form.displayName}
                             onChange={handleChange}
-                            className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-scratch-purple focus:border-transparent outline-none"
-                            placeholder="Как вас зовут?"
+                            className="w-full bg-[#F8FAFB] border border-[#E0E4EB] rounded-[12px] px-4 py-3 text-sm focus:ring-2 focus:ring-[#734DE6] focus:border-transparent outline-none transition-all"
+                            placeholder="Как тебя зовут?"
                             required
                         />
                     </div>
 
+                    {/* Email Field */}
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Имя пользователя</label>
-                        <input
-                            type="text"
-                            name="username"
-                            value={form.username}
-                            onChange={handleChange}
-                            className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-scratch-purple focus:border-transparent outline-none"
-                            placeholder="Логин для входа"
-                            required
-                        />
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                        <label className="block text-sm font-medium text-[#1A1D2D] mb-2">Email</label>
                         <input
                             type="email"
                             name="email"
                             value={form.email}
                             onChange={handleChange}
-                            className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-scratch-purple focus:border-transparent outline-none"
-                            placeholder="email@example.com"
+                            className="w-full bg-[#F8FAFB] border border-[#E0E4EB] rounded-[12px] px-4 py-3 text-sm focus:ring-2 focus:ring-[#734DE6] focus:border-transparent outline-none transition-all"
+                            placeholder="твой@email.ru"
                             required
                         />
                     </div>
 
+                    {/* Password Field */}
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Пароль</label>
-                        <input
-                            type="password"
-                            name="password"
-                            value={form.password}
-                            onChange={handleChange}
-                            className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-scratch-purple focus:border-transparent outline-none"
-                            placeholder="Минимум 6 символов"
-                            required
-                        />
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Подтверждение пароля</label>
-                        <input
-                            type="password"
-                            name="confirmPassword"
-                            value={form.confirmPassword}
-                            onChange={handleChange}
-                            className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-scratch-purple focus:border-transparent outline-none"
-                            placeholder="Повторите пароль"
-                            required
-                        />
-                    </div>
-
-                    {form.role === 'student' && (
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Код класса (необязательно)</label>
+                        <label className="block text-sm font-medium text-[#1A1D2D] mb-2">Пароль</label>
+                        <div className="relative">
                             <input
-                                type="text"
-                                name="classCode"
-                                value={form.classCode}
+                                type={showPassword ? 'text' : 'password'}
+                                name="password"
+                                value={form.password}
                                 onChange={handleChange}
-                                className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-scratch-purple focus:border-transparent outline-none"
-                                placeholder="Введите код от преподавателя"
+                                className="w-full bg-[#F8FAFB] border border-[#E0E4EB] rounded-[12px] px-4 py-3 text-sm focus:ring-2 focus:ring-[#734DE6] focus:border-transparent outline-none transition-all pr-12"
+                                placeholder="Минимум 6 символов"
+                                required
+                                minLength={6}
                             />
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#6B7280] hover:text-[#1A1D2D] transition-colors"
+                            >
+                                {showPassword ? (
+                                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                                        <line x1="1" y1="1" x2="23" y2="23"/>
+                                    </svg>
+                                ) : (
+                                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                                        <circle cx="12" cy="12" r="3"/>
+                                    </svg>
+                                )}
+                            </button>
                         </div>
-                    )}
+                    </div>
 
+                    {/* Submit Button */}
                     <button
                         type="submit"
                         disabled={isLoading}
-                        className="w-full bg-scratch-purple text-white rounded-lg py-2.5 font-bold text-sm hover:bg-scratch-purple-dark transition-colors disabled:opacity-50 mt-2"
+                        className="w-full bg-[#734DE6] text-white rounded-[12px] py-3.5 font-medium text-sm hover:bg-[#5a3eb8] transition-colors disabled:opacity-50 shadow-lg shadow-purple-200"
                     >
                         {isLoading ? 'Регистрация...' : 'Зарегистрироваться'}
                     </button>
                 </form>
 
-                <div className="mt-4 text-center">
-                    <span className="text-sm text-gray-500">Уже есть аккаунт? </span>
-                    <Link to="/login" className="text-sm text-scratch-purple font-medium hover:underline">
+                {/* Login Link */}
+                <div className="mt-6 text-center">
+                    <span className="text-sm text-[#6B7280]">Уже есть аккаунт? </span>
+                    <Link to="/login" className="text-sm text-[#734DE6] font-medium hover:underline">
                         Войти
                     </Link>
                 </div>

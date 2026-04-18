@@ -1,402 +1,241 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/useAuthStore';
-import Header from '@/components/layout/Header';
-import { v4 as uuidv4 } from 'uuid';
-import { Task, Submission, ClassGroup } from '@/types';
+import closeTagIcon from '../../public/closeTagIcon.svg';
 import {
-    getTasksByTeacher, saveTask, deleteTask,
-    getSubmissions, saveSubmission,
-    getClassesByTeacher, saveClass,
-} from '@/services/storage';
-import {
-    Plus, Users, BookOpen, CheckCircle, Clock,
-    Trash2, Eye, Award, FileText
+    Plus, Users, BookOpen, CheckCircle, TrendingUp,
+    Edit2, MoreVertical, Settings, LogOut
 } from 'lucide-react';
-import { formatDate } from '@/utils/helpers';
+
+// Моковые данные для дашборда
+const mockStats = {
+    totalCourses: 3,
+    totalStudents: 213,
+    completedTasks: 1247,
+    averageProgress: 68,
+};
+
+const mockCourses = [
+    {
+        id: '1',
+        title: 'Мои первые шаги',
+        status: 'published' as const,
+        emoji: '🐱',
+        lessonsCount: 5,
+        studentsCount: 124,
+    },
+    {
+        id: '2',
+        title: 'Создаём игры',
+        status: 'published' as const,
+        emoji: '🎮',
+        lessonsCount: 12,
+        studentsCount: 89,
+    },
+    {
+        id: '3',
+        title: 'Продвинутые алгоритмы',
+        status: 'draft' as const,
+        emoji: '🧩',
+        lessonsCount: 3,
+        studentsCount: 0,
+    },
+];
+
+const mockActivity = [
+    { id: 1, user: 'Артём К.', action: 'выполнил задание', target: '«Кот идет к яблоку»', time: '5 мин назад', type: 'success' as const },
+    { id: 2, user: 'Маша Д.', action: 'начала курс', target: '«Создаём игры»', time: '12 мин назад', type: 'info' as const },
+    { id: 3, user: 'Дима Л.', action: 'не прошел проверку', target: '«Циклы»', time: '30 мин назад', type: 'error' as const },
+    { id: 4, user: 'Аня С.', action: 'выполнила все задания в уроке', target: '«Движение»', time: '1 час назад', type: 'success' as const },
+];
 
 const TeacherDashboard: React.FC = () => {
-    const { user } = useAuthStore();
+    const { user, logout } = useAuthStore();
     const navigate = useNavigate();
-    const [activeSection, setActiveSection] = useState<'tasks' | 'students' | 'classes'>('tasks');
-    const [showCreateTask, setShowCreateTask] = useState(false);
-    const [showCreateClass, setShowCreateClass] = useState(false);
 
     if (!user || user.role !== 'teacher') return null;
 
-    const tasks = getTasksByTeacher(user.id);
-    const classes = getClassesByTeacher(user.id);
+    const displayCourses = mockCourses;
+    const displayStats = mockStats;
+    const displayActivity = mockActivity;
+
+    const getStatusBadge = (status: string) => {
+        if (status === 'published') {
+            return <span className="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full">Опубликован</span>;
+        }
+        return <span className="bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded-full">Черновик</span>;
+    };
+
+    const getActivityIcon = (type: string) => {
+        switch (type) {
+            case 'success':
+                return <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center text-green-600 text-xs font-bold">✓</div>;
+            case 'error':
+                return <div className="w-6 h-6 bg-red-100 rounded-full flex items-center justify-center text-red-600 text-xs font-bold">✕</div>;
+            default:
+                return <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 text-xs">🎮</div>;
+        }
+    };
 
     return (
-        <div className="h-screen flex flex-col bg-ui-bg">
-            <Header />
+        <div className="min-h-screen bg-[#F8FAFB]">
+            {/* Header */}
+            <header className="bg-white border-b border-[#EEF0F4]">
+                <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <div className="bg-[rgba(115,77,230,0.1)] rounded-[10px] p-2">
+                            <img src={closeTagIcon} alt="Logo" className="w-5 h-5" />
+                        </div>
+                        <span className="font-semibold text-[#1A1D2D]">Learn2Code</span>
+                        <span className="bg-amber-100 text-amber-700 text-xs px-2 py-0.5 rounded-full">Преподаватель</span>
+                    </div>
+                    <div className="flex items-center gap-4">
+                        <button className="flex items-center gap-2 text-[#6B7280] hover:text-[#1A1D2D] transition-colors">
+                            <Settings className="w-5 h-5" />
+                            <span className="text-sm">Настройки</span>
+                        </button>
+                        <button 
+                            onClick={logout}
+                            className="text-[#6B7280] hover:text-[#1A1D2D] transition-colors"
+                        >
+                            <LogOut className="w-5 h-5" />
+                        </button>
+                    </div>
+                </div>
+            </header>
 
-            <main className="flex-1 overflow-y-auto">
-                <div className="max-w-6xl mx-auto p-6">
-                    <h1 className="text-2xl font-bold text-gray-800 mb-6">Панель преподавателя</h1>
+            <main className="max-w-6xl mx-auto px-4 py-8">
+                {/* Welcome Section */}
+                <div className="flex items-start justify-between mb-8">
+                    <div>
+                        <h1 className="text-2xl font-bold text-[#1A1D2D] mb-1">
+                            Панель преподавателя 👨‍🏫
+                        </h1>
+                        <p className="text-[#6B7280]">
+                            Управляйте курсами и отслеживайте прогресс учеников
+                        </p>
+                    </div>
+                    <button 
+                        onClick={() => navigate('/teacher/course/new')}
+                        className="flex items-center gap-2 bg-[#734DE6] text-white px-4 py-2.5 rounded-[10px] font-medium hover:bg-[#5a3eb8] transition-colors shadow-lg shadow-purple-200"
+                    >
+                        <Plus className="w-4 h-4" />
+                        Новый курс
+                    </button>
+                </div>
 
-                    {/* Навигация */}
-                    <div className="flex gap-2 mb-6">
-                        {[
-                            { id: 'tasks' as const, label: 'Задания', icon: <BookOpen size={18} /> },
-                            { id: 'students' as const, label: 'Решения', icon: <CheckCircle size={18} /> },
-                            { id: 'classes' as const, label: 'Классы', icon: <Users size={18} /> },
-                        ].map(item => (
-                            <button
-                                key={item.id}
-                                onClick={() => setActiveSection(item.id)}
-                                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-all ${
-                                    activeSection === item.id
-                                        ? 'bg-scratch-purple text-white'
-                                        : 'bg-white text-gray-600 hover:bg-gray-100 border border-ui-border'
-                                }`}
+                {/* Stats Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-10">
+                    <div className="bg-white rounded-[16px] p-5 flex items-center gap-4 shadow-sm border border-[#EEF0F4]">
+                        <div className="bg-[rgba(115,77,230,0.1)] rounded-[12px] w-12 h-12 flex items-center justify-center">
+                            <BookOpen className="w-6 h-6 text-[#734DE6]" />
+                        </div>
+                        <div>
+                            <div className="text-2xl font-bold text-[#1A1D2D]">{displayStats.totalCourses}</div>
+                            <div className="text-sm text-[#6B7280]">Всего курсов</div>
+                        </div>
+                    </div>
+                    <div className="bg-white rounded-[16px] p-5 flex items-center gap-4 shadow-sm border border-[#EEF0F4]">
+                        <div className="bg-[rgba(59,130,246,0.1)] rounded-[12px] w-12 h-12 flex items-center justify-center">
+                            <Users className="w-6 h-6 text-blue-500" />
+                        </div>
+                        <div>
+                            <div className="text-2xl font-bold text-[#1A1D2D]">{displayStats.totalStudents}</div>
+                            <div className="text-sm text-[#6B7280]">Учеников</div>
+                        </div>
+                    </div>
+                    <div className="bg-white rounded-[16px] p-5 flex items-center gap-4 shadow-sm border border-[#EEF0F4]">
+                        <div className="bg-[rgba(16,185,129,0.1)] rounded-[12px] w-12 h-12 flex items-center justify-center">
+                            <CheckCircle className="w-6 h-6 text-green-500" />
+                        </div>
+                        <div>
+                            <div className="text-2xl font-bold text-[#1A1D2D]">{displayStats.completedTasks.toLocaleString()}</div>
+                            <div className="text-sm text-[#6B7280]">Заданий выполнено</div>
+                        </div>
+                    </div>
+                    <div className="bg-white rounded-[16px] p-5 flex items-center gap-4 shadow-sm border border-[#EEF0F4]">
+                        <div className="bg-[rgba(245,158,11,0.1)] rounded-[12px] w-12 h-12 flex items-center justify-center">
+                            <TrendingUp className="w-6 h-6 text-amber-500" />
+                        </div>
+                        <div>
+                            <div className="text-2xl font-bold text-[#1A1D2D]">{displayStats.averageProgress}%</div>
+                            <div className="text-sm text-[#6B7280]">Средний прогресс</div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Courses Section */}
+                <>
+                    <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-lg font-bold text-[#1A1D2D]">Мои курсы</h2>
+                    </div>
+                    <div className="space-y-3 mb-10">
+                        {displayCourses.map(course => (
+                            <div 
+                                key={course.id}
+                                className="bg-white rounded-[16px] p-4 flex items-center justify-between shadow-sm border border-[#EEF0F4]"
                             >
-                                {item.icon} {item.label}
-                            </button>
+                                <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 bg-[#F8FAFB] rounded-[12px] flex items-center justify-center text-2xl">
+                                        {course.emoji}
+                                    </div>
+                                    <div>
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <h3 className="font-semibold text-[#1A1D2D]">{course.title}</h3>
+                                            {getStatusBadge(course.status)}
+                                        </div>
+                                        <div className="flex items-center gap-3 text-sm text-[#6B7280]">
+                                            <span className="flex items-center gap-1">
+                                                <BookOpen className="w-3.5 h-3.5" />
+                                                {course.lessonsCount} уроков
+                                            </span>
+                                            <span className="flex items-center gap-1">
+                                                <Users className="w-3.5 h-3.5" />
+                                                {course.studentsCount} учеников
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <button 
+                                        onClick={() => navigate(`/teacher/course/${course.id}/edit`)}
+                                        className="flex items-center gap-2 border border-[#E0E4EB] text-[#1A1D2D] px-3 py-2 rounded-[8px] text-sm hover:bg-gray-50 transition-colors"
+                                    >
+                                        <Edit2 className="w-4 h-4" />
+                                        Редактировать
+                                    </button>
+                                    <button className="p-2 text-[#6B7280] hover:text-[#1A1D2D] transition-colors">
+                                        <MoreVertical className="w-5 h-5" />
+                                    </button>
+                                </div>
+                            </div>
                         ))}
                     </div>
 
-                    {/* Задания */}
-                    {activeSection === 'tasks' && (
-                        <div>
-                            <div className="flex items-center justify-between mb-4">
-                                <h2 className="text-lg font-bold">Задания</h2>
-                                <button
-                                    onClick={() => setShowCreateTask(true)}
-                                    className="scratch-btn-primary flex items-center gap-2 text-sm"
+                    {/* Recent Activity */}
+                    <div>
+                        <h2 className="text-lg font-bold text-[#1A1D2D] mb-4">Последняя активность</h2>
+                        <div className="bg-white rounded-[16px] shadow-sm border border-[#EEF0F4]">
+                            {displayActivity.map((activity, index) => (
+                                <div 
+                                    key={activity.id}
+                                    className={`flex items-center justify-between p-4 ${index !== displayActivity.length - 1 ? 'border-b border-[#EEF0F4]' : ''}`}
                                 >
-                                    <Plus size={16} /> Создать задание
-                                </button>
-                            </div>
-
-                            {tasks.length === 0 ? (
-                                <div className="bg-white rounded-xl p-12 text-center border border-ui-border">
-                                    <BookOpen size={48} className="mx-auto text-gray-300 mb-4" />
-                                    <p className="text-gray-500">Нет заданий</p>
-                                </div>
-                            ) : (
-                                <div className="space-y-3">
-                                    {tasks.map(task => {
-                                        const submissions = getSubmissions(task.id);
-                                        return (
-                                            <div key={task.id} className="bg-white rounded-xl border border-ui-border p-4">
-                                                <div className="flex items-start justify-between">
-                                                    <div>
-                                                        <h3 className="font-bold text-lg">{task.title}</h3>
-                                                        <p className="text-gray-500 text-sm mt-1">{task.description}</p>
-                                                        <div className="flex items-center gap-4 mt-2 text-xs text-gray-400">
-                                                            <span>Создано: {formatDate(task.createdAt)}</span>
-                                                            {task.dueDate && <span>Срок: {formatDate(task.dueDate)}</span>}
-                                                            <span>Макс. балл: {task.maxScore}</span>
-                                                            <span className="flex items-center gap-1">
-                                <FileText size={12} /> {submissions.length} решений
-                              </span>
-                                                        </div>
-                                                    </div>
-                                                    <div className="flex items-center gap-2">
-                                                        <button
-                                                            onClick={() => {
-                                                                // TODO: Просмотр решений
-                                                                alert(`Решений: ${submissions.length}`);
-                                                            }}
-                                                            className="p-2 hover:bg-gray-100 rounded"
-                                                            title="Просмотреть решения"
-                                                        >
-                                                            <Eye size={18} className="text-gray-500" />
-                                                        </button>
-                                                        <button
-                                                            onClick={() => {
-                                                                if (window.confirm('Удалить задание?')) {
-                                                                    deleteTask(task.id);
-                                                                    window.location.reload(); // Простое обновление
-                                                                }
-                                                            }}
-                                                            className="p-2 hover:bg-red-50 rounded"
-                                                            title="Удалить"
-                                                        >
-                                                            <Trash2 size={18} className="text-red-400" />
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            )}
-
-                            {/* Модальное окно создания задания */}
-                            {showCreateTask && (
-                                <CreateTaskModal
-                                    teacherId={user.id}
-                                    classes={classes}
-                                    onClose={() => setShowCreateTask(false)}
-                                    onSave={(task) => {
-                                        saveTask(task);
-                                        setShowCreateTask(false);
-                                        window.location.reload();
-                                    }}
-                                />
-                            )}
-                        </div>
-                    )}
-
-                    {/* Решения */}
-                    {activeSection === 'students' && (
-                        <div>
-                            <h2 className="text-lg font-bold mb-4">Решения учеников</h2>
-                            {tasks.map(task => {
-                                const submissions = getSubmissions(task.id);
-                                if (submissions.length === 0) return null;
-
-                                return (
-                                    <div key={task.id} className="mb-6">
-                                        <h3 className="font-bold text-md mb-2">{task.title}</h3>
-                                        <div className="space-y-2">
-                                            {submissions.map(sub => (
-                                                <div key={sub.id} className="bg-white rounded-lg border border-ui-border p-3 flex items-center justify-between">
-                                                    <div>
-                                                        <span className="font-medium text-sm">{sub.studentName}</span>
-                                                        <span className="text-xs text-gray-400 ml-3">{formatDate(sub.submittedAt)}</span>
-                                                    </div>
-                                                    <div className="flex items-center gap-3">
-                            <span className={`text-xs px-2 py-1 rounded-full font-medium ${
-                                sub.status === 'reviewed' ? 'bg-green-100 text-green-600' :
-                                    sub.status === 'returned' ? 'bg-yellow-100 text-yellow-600' :
-                                        'bg-blue-100 text-blue-600'
-                            }`}>
-                              {sub.status === 'reviewed' ? 'Проверено' :
-                                  sub.status === 'returned' ? 'Возвращено' : 'Отправлено'}
-                            </span>
-                                                        {sub.score !== undefined && (
-                                                            <span className="text-sm font-bold">{sub.score}/{task.maxScore}</span>
-                                                        )}
-                                                        <button
-                                                            onClick={() => {
-                                                                const score = prompt('Оценка:', String(sub.score || 0));
-                                                                const feedback = prompt('Комментарий:', sub.feedback || '');
-                                                                if (score !== null) {
-                                                                    saveSubmission({
-                                                                        ...sub,
-                                                                        score: Number(score),
-                                                                        feedback: feedback || '',
-                                                                        status: 'reviewed',
-                                                                    });
-                                                                    window.location.reload();
-                                                                }
-                                                            }}
-                                                            className="text-xs bg-scratch-purple text-white px-3 py-1 rounded-full hover:brightness-110"
-                                                        >
-                                                            <Award size={14} className="inline mr-1" />
-                                                            Оценить
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
+                                    <div className="flex items-center gap-3">
+                                        {getActivityIcon(activity.type)}
+                                        <span className="text-sm">
+                                            <span className="font-medium text-[#1A1D2D]">{activity.user}</span>
+                                            {' '}{activity.action}{' '}
+                                            <span className="font-medium text-[#1A1D2D]">{activity.target}</span>
+                                        </span>
                                     </div>
-                                );
-                            })}
-                        </div>
-                    )}
-
-                    {/* Классы */}
-                    {activeSection === 'classes' && (
-                        <div>
-                            <div className="flex items-center justify-between mb-4">
-                                <h2 className="text-lg font-bold">Классы</h2>
-                                <button
-                                    onClick={() => setShowCreateClass(true)}
-                                    className="scratch-btn-primary flex items-center gap-2 text-sm"
-                                >
-                                    <Plus size={16} /> Создать класс
-                                </button>
-                            </div>
-
-                            {classes.length === 0 ? (
-                                <div className="bg-white rounded-xl p-12 text-center border border-ui-border">
-                                    <Users size={48} className="mx-auto text-gray-300 mb-4" />
-                                    <p className="text-gray-500">Нет классов</p>
+                                    <span className="text-xs text-[#6B7280]">{activity.time}</span>
                                 </div>
-                            ) : (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {classes.map(cls => (
-                                        <div key={cls.id} className="bg-white rounded-xl border border-ui-border p-4">
-                                            <h3 className="font-bold text-lg">{cls.name}</h3>
-                                            <p className="text-sm text-gray-500 mt-1">
-                                                Код класса: <code className="bg-gray-100 px-2 py-0.5 rounded font-mono">{cls.id.slice(0, 8)}</code>
-                                            </p>
-                                            <p className="text-sm text-gray-400 mt-1">
-                                                Учеников: {cls.studentIds.length}
-                                            </p>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-
-                            {showCreateClass && (
-                                <CreateClassModal
-                                    teacherId={user.id}
-                                    onClose={() => setShowCreateClass(false)}
-                                    onSave={(cls) => {
-                                        saveClass(cls);
-                                        setShowCreateClass(false);
-                                        window.location.reload();
-                                    }}
-                                />
-                            )}
+                            ))}
                         </div>
-                    )}
-                </div>
+                    </div>
+                </>
             </main>
-        </div>
-    );
-};
-
-// Модальное окно создания задания
-const CreateTaskModal: React.FC<{
-    teacherId: string;
-    classes: ClassGroup[];
-    onClose: () => void;
-    onSave: (task: Task) => void;
-}> = ({ teacherId, classes, onClose, onSave }) => {
-    const [title, setTitle] = useState('');
-    const [description, setDescription] = useState('');
-    const [classId, setClassId] = useState(classes[0]?.id || '');
-    const [maxScore, setMaxScore] = useState(100);
-    const [dueDate, setDueDate] = useState('');
-
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        const task: Task = {
-            id: uuidv4(),
-            title,
-            description,
-            teacherId,
-            classId,
-            maxScore,
-            dueDate: dueDate || undefined,
-            createdAt: new Date().toISOString(),
-        };
-        onSave(task);
-    };
-
-    return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-2xl w-full max-w-lg p-6">
-                <h2 className="text-xl font-bold mb-4">Новое задание</h2>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <div>
-                        <label className="block text-sm font-medium mb-1">Название</label>
-                        <input
-                            type="text"
-                            value={title}
-                            onChange={(e) => setTitle(e.target.value)}
-                            className="w-full border rounded-lg px-3 py-2 text-sm"
-                            required
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium mb-1">Описание</label>
-                        <textarea
-                            value={description}
-                            onChange={(e) => setDescription(e.target.value)}
-                            className="w-full border rounded-lg px-3 py-2 text-sm h-24 resize-none"
-                            required
-                        />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium mb-1">Класс</label>
-                            <select
-                                value={classId}
-                                onChange={(e) => setClassId(e.target.value)}
-                                className="w-full border rounded-lg px-3 py-2 text-sm"
-                            >
-                                <option value="">Без класса</option>
-                                {classes.map(c => (
-                                    <option key={c.id} value={c.id}>{c.name}</option>
-                                ))}
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium mb-1">Макс. балл</label>
-                            <input
-                                type="number"
-                                value={maxScore}
-                                onChange={(e) => setMaxScore(Number(e.target.value))}
-                                className="w-full border rounded-lg px-3 py-2 text-sm"
-                            />
-                        </div>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium mb-1">Срок сдачи</label>
-                        <input
-                            type="datetime-local"
-                            value={dueDate}
-                            onChange={(e) => setDueDate(e.target.value)}
-                            className="w-full border rounded-lg px-3 py-2 text-sm"
-                        />
-                    </div>
-                    <div className="flex justify-end gap-2 pt-2">
-                        <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">
-                            Отмена
-                        </button>
-                        <button type="submit" className="scratch-btn-primary text-sm">
-                            Создать
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    );
-};
-
-// Модальное окно создания класса
-const CreateClassModal: React.FC<{
-    teacherId: string;
-    onClose: () => void;
-    onSave: (cls: ClassGroup) => void;
-}> = ({ teacherId, onClose, onSave }) => {
-    const [name, setName] = useState('');
-
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        const cls: ClassGroup = {
-            id: uuidv4(),
-            name,
-            teacherId,
-            studentIds: [],
-            createdAt: new Date().toISOString(),
-        };
-        onSave(cls);
-    };
-
-    return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-2xl w-full max-w-md p-6">
-                <h2 className="text-xl font-bold mb-4">Новый класс</h2>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <div>
-                        <label className="block text-sm font-medium mb-1">Название класса</label>
-                        <input
-                            type="text"
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            className="w-full border rounded-lg px-3 py-2 text-sm"
-                            placeholder="Например: 5А класс"
-                            required
-                        />
-                    </div>
-                    <div className="flex justify-end gap-2 pt-2">
-                        <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">
-                            Отмена
-                        </button>
-                        <button type="submit" className="scratch-btn-primary text-sm">
-                            Создать
-                        </button>
-                    </div>
-                </form>
-            </div>
         </div>
     );
 };

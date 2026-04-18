@@ -1,184 +1,200 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/useAuthStore';
-import { useProjectStore } from '@/store/useProjectStore';
-import Header from '@/components/layout/Header';
-import { getTasks, getStudentSubmissions, saveSubmission } from '@/services/storage';
-import { Submission, ExportedCode } from '@/types';
-import { v4 as uuidv4 } from 'uuid';
-import { BookOpen, CheckCircle, Clock, Send, AlertCircle } from 'lucide-react';
-import { formatDate } from '@/utils/helpers';
+import closeTagIcon from '../../public/closeTagIcon.svg';
+import { BookOpen, Users, Star, Clock, BookOpenCheck } from 'lucide-react';
+
+// Моковые данные курсов (в реальности будут приходить с бэкенда)
+const courses = [
+    {
+        id: '1',
+        title: 'Мои первые шаги',
+        description: 'Научись основам программирования с котом Скретчем!',
+        emoji: '🐱',
+        gradient: 'from-[#6366F1] to-[#8B5CF6]',
+        lessonsCount: 8,
+        studentsCount: 124,
+        rating: 4.8,
+        progress: 62,
+    },
+    {
+        id: '2',
+        title: 'Создаём игры',
+        description: 'Создай свою первую игру с анимацией и звуками!',
+        emoji: '🎮',
+        gradient: 'from-[#A855F7] to-[#EC4899]',
+        lessonsCount: 12,
+        studentsCount: 89,
+        rating: 4.9,
+        progress: 25,
+    },
+    {
+        id: '3',
+        title: 'Анимации и истории',
+        description: 'Оживляй персонажей и рассказывай интерактивные истории.',
+        emoji: '🎬',
+        gradient: 'from-[#F59E0B] to-[#F97316]',
+        lessonsCount: 6,
+        studentsCount: 67,
+        rating: 4.7,
+        progress: 0,
+    },
+    {
+        id: '4',
+        title: 'Музыка и звуки',
+        description: 'Создавай музыкальные проекты и работай со звуками.',
+        emoji: '🎵',
+        gradient: 'from-[#10B981] to-[#14B8A6]',
+        lessonsCount: 5,
+        studentsCount: 45,
+        rating: 4.6,
+        progress: 0,
+    },
+];
+
+// Моковая статистика
+const stats = {
+    coursesStarted: 2,
+    tasksCompleted: 15,
+    hoursLearned: 8.5,
+};
 
 const StudentDashboard: React.FC = () => {
-    const { user } = useAuthStore();
-    const { currentProject, projects, loadProject } = useProjectStore();
+    const { user, logout } = useAuthStore();
     const navigate = useNavigate();
 
     if (!user || user.role !== 'student') return null;
 
-    const allTasks = getTasks(user.classId);
-    const mySubmissions = getStudentSubmissions(user.id);
-
-    const getSubmissionForTask = (taskId: string) => {
-        return mySubmissions.find(s => s.taskId === taskId);
-    };
-
-    const handleSubmit = (taskId: string) => {
-        // Выбираем проект для отправки
-        const userProjects = projects.filter(p => p.authorId === user.id);
-
-        if (userProjects.length === 0) {
-            alert('Сначала создайте проект в редакторе');
-            return;
-        }
-
-        const projectNames = userProjects.map((p, i) => `${i + 1}. ${p.name}`).join('\n');
-        const choice = prompt(`Выберите проект для отправки (номер):\n${projectNames}`);
-
-        if (!choice) return;
-
-        const idx = parseInt(choice) - 1;
-        const project = userProjects[idx];
-
-        if (!project) {
-            alert('Неверный номер проекта');
-            return;
-        }
-
-        // Создаём экспорт
-        const exportedCode: ExportedCode = {
-            json: JSON.stringify(project, null, 2),
-            blocklyXml: project.sprites.map(s => s.blocks).join('\n'),
-            javascript: '// Код будет сгенерирован при открытии в редакторе',
-            python: '# Код будет сгенерирован при открытии в редакторе',
-        };
-
-        const submission: Submission = {
-            id: uuidv4(),
-            taskId,
-            studentId: user.id,
-            studentName: user.displayName,
-            project,
-            exportedCode,
-            submittedAt: new Date().toISOString(),
-            status: 'submitted',
-        };
-
-        saveSubmission(submission);
-
-        // TODO: Отправка на сервер для проверки с эталонным решением
-        // api.post('/submissions', submission);
-        // api.post('/submissions/check', { submissionId: submission.id, taskId });
-
-        alert('Решение отправлено!');
-        window.location.reload();
-    };
-
     return (
-        <div className="h-screen flex flex-col bg-ui-bg">
-            <Header />
-
-            <main className="flex-1 overflow-y-auto p-6">
-                <div className="max-w-4xl mx-auto">
-                    <h1 className="text-2xl font-bold text-gray-800 mb-6">Мои задания</h1>
-
-                    {allTasks.length === 0 ? (
-                        <div className="bg-white rounded-xl p-12 text-center border border-ui-border">
-                            <BookOpen size={48} className="mx-auto text-gray-300 mb-4" />
-                            <p className="text-gray-500">Нет доступных заданий</p>
-                            <p className="text-gray-400 text-sm mt-2">
-                                Попросите преподавателя добавить вас в класс
-                            </p>
+        <div className="min-h-screen bg-[#F8FAFB]">
+            {/* Header */}
+            <header className="bg-white border-b border-[#EEF0F4]">
+                <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <div className="bg-[rgba(115,77,230,0.1)] rounded-[10px] p-2">
+                            <img src={closeTagIcon} alt="Logo" className="w-5 h-5" />
                         </div>
-                    ) : (
-                        <div className="space-y-4">
-                            {allTasks.map(task => {
-                                const submission = getSubmissionForTask(task.id);
-                                const isOverdue = task.dueDate && new Date(task.dueDate) < new Date();
+                        <span className="font-semibold text-[#1A1D2D]">Learn2Code</span>
+                    </div>
+                    <div className="flex items-center gap-4">
+                        <button 
+                            onClick={() => navigate('/profile')}
+                            className="flex items-center gap-2 text-[#6B7280] hover:text-[#1A1D2D] transition-colors"
+                        >
+                            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                                <circle cx="12" cy="7" r="4"/>
+                            </svg>
+                            <span className="text-sm">Профиль</span>
+                        </button>
+                        <button 
+                            onClick={logout}
+                            className="text-[#6B7280] hover:text-[#1A1D2D] transition-colors"
+                        >
+                            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </header>
 
-                                return (
-                                    <div key={task.id} className="bg-white rounded-xl border border-ui-border p-5">
-                                        <div className="flex items-start justify-between">
-                                            <div className="flex-1">
-                                                <div className="flex items-center gap-2">
-                                                    <h3 className="font-bold text-lg">{task.title}</h3>
-                                                    {submission ? (
-                                                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                                                            submission.status === 'reviewed'
-                                                                ? 'bg-green-100 text-green-600'
-                                                                : 'bg-blue-100 text-blue-600'
-                                                        }`}>
-                              {submission.status === 'reviewed' ? '✓ Проверено' : '⏳ На проверке'}
-                            </span>
-                                                    ) : isOverdue ? (
-                                                        <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-600 font-medium">
-                              Просрочено
-                            </span>
-                                                    ) : null}
-                                                </div>
+            <main className="max-w-6xl mx-auto px-4 py-8">
+                {/* Welcome Section */}
+                <div className="mb-8">
+                    <h1 className="text-3xl font-bold text-[#1A1D2D] mb-2">
+                        Привет, {user.displayName || 'Ученик'}! 👋
+                    </h1>
+                    <p className="text-[#6B7280]">
+                        Продолжай учиться и создавай крутые проекты
+                    </p>
+                </div>
 
-                                                <p className="text-gray-500 text-sm mt-2">{task.description}</p>
+                {/* Stats Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
+                    <div className="bg-white rounded-[16px] p-5 flex items-center gap-4 shadow-sm border border-[#EEF0F4]">
+                        <div className="bg-[rgba(115,77,230,0.1)] rounded-[12px] w-12 h-12 flex items-center justify-center">
+                            <BookOpen className="w-6 h-6 text-[#734DE6]" />
+                        </div>
+                        <div>
+                            <div className="text-2xl font-bold text-[#1A1D2D]">{stats.coursesStarted}</div>
+                            <div className="text-sm text-[#6B7280]">Курсов начато</div>
+                        </div>
+                    </div>
+                    <div className="bg-white rounded-[16px] p-5 flex items-center gap-4 shadow-sm border border-[#EEF0F4]">
+                        <div className="bg-[rgba(245,158,11,0.1)] rounded-[12px] w-12 h-12 flex items-center justify-center">
+                            <BookOpenCheck className="w-6 h-6 text-[#F59E0B]" />
+                        </div>
+                        <div>
+                            <div className="text-2xl font-bold text-[#1A1D2D]">{stats.tasksCompleted}</div>
+                            <div className="text-sm text-[#6B7280]">Заданий выполнено</div>
+                        </div>
+                    </div>
+                    <div className="bg-white rounded-[16px] p-5 flex items-center gap-4 shadow-sm border border-[#EEF0F4]">
+                        <div className="bg-[rgba(20,184,166,0.1)] rounded-[12px] w-12 h-12 flex items-center justify-center">
+                            <Clock className="w-6 h-6 text-[#14B8A6]" />
+                        </div>
+                        <div>
+                            <div className="text-2xl font-bold text-[#1A1D2D]">{stats.hoursLearned}</div>
+                            <div className="text-sm text-[#6B7280]">Часов обучения</div>
+                        </div>
+                    </div>
+                </div>
 
-                                                <div className="flex items-center gap-4 mt-3 text-xs text-gray-400">
-                          <span className="flex items-center gap-1">
-                            <Clock size={12} /> Создано: {formatDate(task.createdAt)}
-                          </span>
-                                                    {task.dueDate && (
-                                                        <span className={`flex items-center gap-1 ${isOverdue ? 'text-red-400' : ''}`}>
-                              <AlertCircle size={12} /> Срок: {formatDate(task.dueDate)}
-                            </span>
-                                                    )}
-                                                    <span>Макс. балл: {task.maxScore}</span>
-                                                </div>
-
-                                                {/* Результат проверки */}
-                                                {submission?.status === 'reviewed' && (
-                                                    <div className="mt-3 bg-green-50 rounded-lg p-3">
-                                                        <div className="flex items-center gap-2">
-                                                            <CheckCircle size={16} className="text-green-500" />
-                                                            <span className="font-bold text-green-700">
-                                Оценка: {submission.score}/{task.maxScore}
-                              </span>
-                                                        </div>
-                                                        {submission.feedback && (
-                                                            <p className="text-sm text-green-600 mt-1">{submission.feedback}</p>
-                                                        )}
-                                                    </div>
-                                                )}
-                                            </div>
-
-                                            <div className="ml-4 flex flex-col gap-2">
-                                                {!submission && (
-                                                    <>
-                                                        <button
-                                                            onClick={() => navigate('/editor')}
-                                                            className="text-xs bg-scratch-blue text-white px-4 py-2 rounded-lg font-medium hover:brightness-110"
-                                                        >
-                                                            Открыть редактор
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleSubmit(task.id)}
-                                                            className="text-xs bg-scratch-green text-white px-4 py-2 rounded-lg font-medium hover:brightness-110 flex items-center gap-1"
-                                                        >
-                                                            <Send size={14} /> Отправить
-                                                        </button>
-                                                    </>
-                                                )}
-                                                {submission && submission.status !== 'reviewed' && (
-                                                    <button
-                                                        onClick={() => handleSubmit(task.id)}
-                                                        className="text-xs bg-scratch-orange text-white px-4 py-2 rounded-lg font-medium hover:brightness-110"
-                                                    >
-                                                        Отправить заново
-                                                    </button>
-                                                )}
-                                            </div>
+                {/* Courses Section */}
+                <div>
+                    <h2 className="text-xl font-bold text-[#1A1D2D] mb-5">Мои курсы</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+                        {courses.map(course => (
+                            <div 
+                                key={course.id}
+                                onClick={() => navigate(`/course/${course.id}`)}
+                                className="bg-white rounded-[16px] overflow-hidden shadow-sm border border-[#EEF0F4] cursor-pointer hover:shadow-md transition-shadow"
+                            >
+                                {/* Course Header with Gradient */}
+                                <div className={`h-28 bg-gradient-to-r ${course.gradient} relative flex items-center justify-center`}>
+                                    {course.progress > 0 && (
+                                        <div className="absolute top-3 right-3 bg-white/90 rounded-full px-2 py-1 text-xs font-medium text-[#1A1D2D]">
+                                            {course.progress}%
                                         </div>
+                                    )}
+                                    <span className="text-5xl">{course.emoji}</span>
+                                </div>
+                                
+                                {/* Course Content */}
+                                <div className="p-4">
+                                    <h3 className="font-semibold text-[#1A1D2D] mb-1">{course.title}</h3>
+                                    <p className="text-sm text-[#6B7280] mb-3 line-clamp-2">{course.description}</p>
+                                    
+                                    {/* Course Meta */}
+                                    <div className="flex items-center gap-3 text-xs text-[#6B7280] mb-3">
+                                        <span className="flex items-center gap-1">
+                                            <BookOpen className="w-3.5 h-3.5" />
+                                            {course.lessonsCount} уроков
+                                        </span>
+                                        <span className="flex items-center gap-1">
+                                            <Users className="w-3.5 h-3.5" />
+                                            {course.studentsCount}
+                                        </span>
+                                        <span className="flex items-center gap-1">
+                                            <Star className="w-3.5 h-3.5 text-[#F59E0B]" />
+                                            {course.rating}
+                                        </span>
                                     </div>
-                                );
-                            })}
-                        </div>
-                    )}
+                                    
+                                    {/* Progress Bar */}
+                                    {course.progress > 0 && (
+                                        <div className="h-1.5 bg-[#EEF0F4] rounded-full overflow-hidden">
+                                            <div 
+                                                className="h-full bg-gradient-to-r from-[#734DE6] to-[#14B8A6] rounded-full"
+                                                style={{ width: `${course.progress}%` }}
+                                            />
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
                 </div>
             </main>
         </div>
