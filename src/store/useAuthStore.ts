@@ -25,12 +25,21 @@ interface AuthStore {
 
 const DEMO_USERS: StoredUser[] = [
     {
+        id: 'admin-1',
+        username: 'admin',
+        email: 'admin@edu.com',
+        role: 'admin',
+        displayName: 'Администратор',
+        password: 'admin',
+        createdAt: new Date().toISOString(),
+    },
+    {
         id: 'teacher-1',
         username: 'teacher',
         email: 'teacher@edu.com',
         role: 'teacher',
         displayName: 'Иван Петрович',
-        password: '123456',
+        password: 'teacher',
         createdAt: new Date().toISOString(),
     },
     {
@@ -39,7 +48,7 @@ const DEMO_USERS: StoredUser[] = [
         email: 'student@edu.com',
         role: 'student',
         displayName: 'Алиса',
-        password: '123456',
+        password: 'student',
         createdAt: new Date().toISOString(),
         classId: 'class-1',
     },
