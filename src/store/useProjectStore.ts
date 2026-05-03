@@ -20,6 +20,7 @@ interface ProjectStore {
     hydrateProjectsForUser: (userId: string) => void;
     createProject: (name: string, authorId: string, authorName: string) => Project;
     loadProject: (projectId: string) => void;
+    setProject: (project: Project) => void;
     saveProject: () => void;
     deleteProject: (projectId: string) => void;
     clearCurrentProject: () => void;
@@ -120,6 +121,10 @@ export const useProjectStore = create<ProjectStore>()(
                 // TODO: Загрузка с сервера
                 // const response = await api.get(`/projects/${projectId}`);
                 // set({ currentProject: response.data, isDirty: false });
+            },
+
+            setProject: (project) => {
+                set({ currentProject: { ...project }, isDirty: true, activeUserId: project.authorId });
             },
 
             saveProject: () => {

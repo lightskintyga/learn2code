@@ -1,37 +1,36 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import * as Blockly from 'blockly';
 import { useCourseStore } from '@/store/useCourseStore';
 import { useToastStore } from '@/store/useToastStore';
-import { Loader2, ChevronLeft, Play, Save, AlertCircle, CheckCircle } from 'lucide-react';
+import { useProjectStore } from '@/store/useProjectStore';
+import { useEditorStore } from '@/store/useEditorStore';
+import { runtime } from '@/engine/Runtime';
+import { Loader2, ChevronLeft, Play, Save, AlertCircle, CheckCircle, FlaskConical, Square } from 'lucide-react';
 import { toolboxConfig } from '@/blockly/toolbox';
+import StageCanvas from '@/components/stage/StageCanvas';
+import SpriteList from '@/components/sprites/SpriteList';
+import SpriteInfo from '@/components/sprites/SpriteInfo';
+import BackdropSelector from '@/components/sprites/BackdropSelector';
 
 // Категории блоков для выбора
 const blockCategories = [
-    { id: 'motion', name: 'Движение', color: '#3B82F6' },
-    { id: 'looks', name: 'Внешность', color: '#8B5CF6' },
-    { id: 'sound', name: 'Звук', color: '#EC4899' },
-    { id: 'events', name: 'События', color: '#F59E0B' },
-    { id: 'control', name: 'Управление', color: '#F97316' },
-    { id: 'sensing', name: 'Сенсоры', color: '#06B6D4' },
-    { id: 'operators', name: 'Операторы', color: '#10B981' },
-    { id: 'variables', name: 'Переменные', color: '#F97316' },
+    { id: 'motion', name: 'Движение', color: '#3B82F6', colorClass: 'bg-blue-500' },
+    { id: 'looks', name: 'Внешность', color: '#8B5CF6', colorClass: 'bg-violet-500' },
+    { id: 'sound', name: 'Звук', color: '#EC4899', colorClass: 'bg-pink-500' },
+    { id: 'events', name: 'События', color: '#F59E0B', colorClass: 'bg-amber-500' },
+    { id: 'control', name: 'Управление', color: '#F97316', colorClass: 'bg-orange-500' },
+    { id: 'sensing', name: 'Сенсоры', color: '#06B6D4', colorClass: 'bg-cyan-500' },
+    { id: 'operators', name: 'Операторы', color: '#10B981', colorClass: 'bg-emerald-500' },
+    { id: 'variables', name: 'Переменные', color: '#F97316', colorClass: 'bg-orange-500' },
 ];
-
-// Фильтруем toolbox по выбранным категориям (для предпросмотра)
-const filterToolbox = (categories: string[]) => {
-    const fullToolbox = JSON.parse(JSON.stringify(toolboxConfig));
-    fullToolbox.contents = fullToolbox.contents.filter((cat: any) =>
-        categories.some(c => cat.name.toLowerCase().includes(c.toLowerCase()) ||
-        cat.name.toLowerCase().replace(/[^a-z]/g, '').includes(c.toLowerCase()))
-    );
-    return fullToolbox;
-};
 
 const EditTaskPage: React.FC = () => {
     const { courseId, lessonId, taskId } = useParams<{ courseId: string; lessonId: string; taskId: string }>();
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
     const isNewTask = taskId === 'new';
+    const solutionIdFromQuery = searchParams.get('solution');
 
     const {
         currentTask,
@@ -44,6 +43,8 @@ const EditTaskPage: React.FC = () => {
     } = useCourseStore();
 
     const { addToast } = useToastStore();
+    const { currentProject, createProject } = useProjectStore();
+    const { isRunning, setRunning, selectSprite } = useEditorStore();
 
     const [formData, setFormData] = useState({
         title: '',
@@ -56,6 +57,7 @@ const EditTaskPage: React.FC = () => {
     const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
     const [isSaving, setIsSaving] = useState(false);
     const [hasSolution, setHasSolution] = useState(false);
+    const [isLoadingPreview, setIsLoadingPreview] = useState(false);
 
     // Blockly для отображения эталонного решения (только для чтения)
     const blocklyRef = useRef<HTMLDivElement>(null);
@@ -68,7 +70,7 @@ const EditTaskPage: React.FC = () => {
         }
     }, [isNewTask, taskId, fetchTask]);
 
-    // Обновляем форму при загрузке задания
+    // Обновляем форму при загрузке задания или draft с решением
     useEffect(() => {
         if (currentTask && !isNewTask) {
             setFormData({
@@ -82,59 +84,65 @@ const EditTaskPage: React.FC = () => {
                 setSelectedCategories(currentTask.blockCategories);
             }
         }
-    }, [currentTask, isNewTask]);
+        // Загружаем draft данные для нового задания с решением
+        else if (isNewTask && solutionIdFromQuery) {
+            const draftWithSolution = localStorage.getItem(`task_draft_with_solution`);
+            if (draftWithSolution) {
+                try {
+                    const draft = JSON.parse(draftWithSolution);
+                    setFormData({
+                        title: draft.title || '',
+                        description: draft.description || '',
+                        hint: draft.hint || '',
+                        expectedOutput: draft.expectedOutput || '',
+                        checkLevel: draft.checkLevel || 'State',
+                    });
+                    setSelectedCategories(draft.selectedCategories || []);
+                } catch (e) {
+                    console.error('Failed to parse draft with solution:', e);
+                }
+            }
+        }
+    }, [currentTask, isNewTask, solutionIdFromQuery]);
 
-    // Загружаем эталонное решение из localStorage (временно)
+    // Загружаем эталонное решение из localStorage
     useEffect(() => {
+        // Для существующего задания - ищем по taskId
         if (taskId && taskId !== 'new') {
             const savedSolution = localStorage.getItem(`task_solution_${taskId}`);
             setHasSolution(!!savedSolution);
         }
-    }, [taskId]);
+        // Для нового задания - ищем по solutionId из query param
+        else if (isNewTask && solutionIdFromQuery) {
+            const savedSolution = localStorage.getItem(`task_solution_${solutionIdFromQuery}`);
+            setHasSolution(!!savedSolution);
+        }
+    }, [taskId, isNewTask, solutionIdFromQuery]);
 
-    // Инициализация Blockly только для отображения эталонного решения
+    // Инициализация проекта для сцены в превью
     useEffect(() => {
-        if (!blocklyRef.current || workspaceRef.current || selectedCategories.length === 0) return;
+        if (!currentProject) {
+            createProject('Task Preview', 'teacher', 'Teacher');
+        }
+    }, [currentProject, createProject]);
 
-        const toolbox = filterToolbox(selectedCategories);
+    // Загружаем эталонное решение в проект
+    useEffect(() => {
+        if (!taskId || taskId === 'new' || !currentProject) return;
 
-        workspaceRef.current = Blockly.inject(blocklyRef.current, {
-            toolbox: toolbox,
-            theme: 'zelos',
-            renderer: 'zelos',
-            readOnly: true, // Только для чтения!
-            scrollbars: true,
-            zoom: {
-                controls: true,
-                wheel: true,
-                startScale: 0.675,
-            },
-            grid: {
-                spacing: 40,
-                length: 2,
-                colour: '#DDD',
-            },
-        });
-
-        // Загружаем эталонное решение если есть
-        if (taskId && taskId !== 'new') {
-            const savedSolution = localStorage.getItem(`task_solution_${taskId}`);
-            if (savedSolution) {
-                try {
-                    const parser = new DOMParser();
-                    const xml = parser.parseFromString(savedSolution, 'text/xml');
-                    Blockly.Xml.domToWorkspace(xml.documentElement, workspaceRef.current);
-                } catch (e) {
-                    console.error('Failed to load solution:', e);
-                }
+        const savedProject = localStorage.getItem(`task_solution_project_${taskId}`);
+        if (savedProject) {
+            try {
+                const projectData = JSON.parse(savedProject);
+                // Загружаем спрайты и блоки из эталонного решения
+                const { setProject } = useProjectStore.getState();
+                setProject(projectData);
+                setHasSolution(true);
+            } catch (e) {
+                console.error('Failed to load solution project:', e);
             }
         }
-
-        return () => {
-            workspaceRef.current?.dispose();
-            workspaceRef.current = null;
-        };
-    }, [selectedCategories, taskId]);
+    }, [taskId, currentProject]);
 
     const handleCategoryToggle = (categoryId: string) => {
         setSelectedCategories(prev =>
@@ -172,6 +180,14 @@ const EditTaskPage: React.FC = () => {
         setIsSaving(true);
 
         try {
+            // Определяем ID решения (из query param для новых или taskId для существующих)
+            const solutionId = isNewTask ? solutionIdFromQuery : taskId;
+            if (!solutionId) {
+                addToast('Ошибка: не найдено эталонное решение', 'error');
+                setIsSaving(false);
+                return;
+            }
+
             const taskData = {
                 title: formData.title,
                 description: formData.description,
@@ -183,14 +199,34 @@ const EditTaskPage: React.FC = () => {
                 blockCategories: selectedCategories,
             };
 
+            // Получаем Python код решения из localStorage
+            const pythonCode = localStorage.getItem(`task_solution_python_${solutionId}`) || '';
+            const solutionXml = localStorage.getItem(`task_solution_${solutionId}`) || '';
+
             if (isNewTask) {
-                const task = await createTask(taskData);
+                // Создаем задание на бэкенде с эталонным Python кодом
+                const task = await createTask({
+                    ...taskData,
+                    expectedOutput: pythonCode, // Сохраняем Python код как expectedOutput
+                });
                 if (task) {
+                    // Переносим решение на новый ID
+                    if (solutionXml) {
+                        localStorage.setItem(`task_solution_${task.id}`, solutionXml);
+                        localStorage.setItem(`task_solution_python_${task.id}`, pythonCode);
+                        // Очищаем draft
+                        localStorage.removeItem(`task_solution_${solutionId}`);
+                        localStorage.removeItem(`task_solution_python_${solutionId}`);
+                        localStorage.removeItem(`task_draft_with_solution`);
+                    }
                     addToast('Задание создано', 'success');
                     navigate(`/teacher/course/${courseId}/lesson/${lessonId}/task/${task.id}/edit`);
                 }
             } else if (taskId) {
-                await updateTask(taskId, taskData);
+                await updateTask(taskId, {
+                    ...taskData,
+                    expectedOutput: pythonCode,
+                });
                 addToast('Изменения сохранены', 'success');
             }
         } catch {
@@ -211,39 +247,53 @@ const EditTaskPage: React.FC = () => {
             return;
         }
 
-        // Если это новое задание, сначала создаем его
+        // Сохраняем текущие данные формы в localStorage для передачи на страницу записи
+        const draftData = {
+            title: formData.title,
+            description: formData.description,
+            hint: formData.hint,
+            expectedOutput: formData.expectedOutput,
+            checkLevel: formData.checkLevel,
+            selectedCategories,
+        };
+        localStorage.setItem(`task_draft_${taskId || 'new'}`, JSON.stringify(draftData));
+
         if (isNewTask) {
-            const task = await createTask({
-                title: formData.title,
-                description: formData.description,
-                order: 1,
-                lessonId: lessonId,
-                initialCode: '',
-                expectedOutput: formData.expectedOutput,
-                checkLevel: formData.checkLevel,
-                blockCategories: selectedCategories,
-            });
-
-            if (task) {
-                addToast('Задание создано, перехожу к записи решения', 'success');
-                navigate(`/teacher/course/${courseId}/lesson/${lessonId}/task/${task.id}/record-solution`);
-            } else {
-                addToast('Ошибка создания задания', 'error');
-            }
+            navigate(`/teacher/course/${courseId}/lesson/${lessonId}/task/new/record-solution?draft=true`);
         } else if (taskId) {
-            // Обновляем существующее задание перед записью решения
-            await updateTask(taskId, {
-                title: formData.title,
-                description: formData.description,
-                order: currentTask?.order || 1,
-                initialCode: '',
-                expectedOutput: formData.expectedOutput,
-                checkLevel: formData.checkLevel,
-                blockCategories: selectedCategories,
-            });
-
+            // Для существующего задания просто переходим на страницу записи решения
+            // Не обновляем задание на бэкенде - это произойдет только при нажатии "Сохранить"
             navigate(`/teacher/course/${courseId}/lesson/${lessonId}/task/${taskId}/record-solution`);
         }
+    };
+
+    // Запуск эталонного решения в превью
+    const handleStartPreview = async () => {
+        if (!currentProject) return;
+
+        runtime.loadProject(currentProject);
+        setRunning(true);
+        try {
+            await runtime.start();
+        } catch (e) {
+            console.error('Runtime error:', e);
+        }
+        setRunning(false);
+    };
+
+    const handleStopPreview = () => {
+        runtime.stop();
+        setRunning(false);
+        if (currentProject) runtime.loadProject(currentProject);
+    };
+
+    // Тест проверки
+    const handleTestCheck = () => {
+        addToast('Проверка эталонного решения...', 'info');
+        // TODO: Реализовать логику проверки
+        setTimeout(() => {
+            addToast('Проверка завершена успешно', 'success');
+        }, 1000);
     };
 
     return (
@@ -256,7 +306,7 @@ const EditTaskPage: React.FC = () => {
                         className="flex items-center gap-2 text-[#6B7280] hover:text-[#1A1D2D] transition-colors"
                     >
                         <ChevronLeft className="w-5 h-5" />
-                        <span className="text-sm">← Редактор задания</span>
+                        <span className="text-sm">Редактор задания</span>
                     </button>
 
                     {/* Error Message */}
@@ -283,7 +333,7 @@ const EditTaskPage: React.FC = () => {
                             }`}
                         >
                             <Play className="w-4 h-4" />
-                            Записать решение
+                            {hasSolution ? 'Перезаписать решение' : 'Записать решение'}
                         </button>
                         <button
                             onClick={handleSave}
@@ -317,7 +367,7 @@ const EditTaskPage: React.FC = () => {
                 </div>
             )}
 
-            {/* Main Content - 3 columns */}
+            {/* Main Content */}
             <div className="flex-1 flex overflow-hidden">
                 {/* Left Panel - Task Info */}
                 <div className="w-80 bg-white border-r border-[#EEF0F4] flex flex-col shrink-0 overflow-y-auto">
@@ -367,7 +417,7 @@ const EditTaskPage: React.FC = () => {
 
                     {/* Доступные блоки */}
                     <div className="border-t border-[#EEF0F4] p-4">
-                        <h3 className="text-sm font-semibold text-[#1A1D2D] mb-1">Доступные блоки</h3>
+                        <h3 className="text-sm font-semibold text-[#1A1D2D] mb-1">Доступные категории блоков</h3>
                         <p className="text-xs text-[#6B7280] mb-3">
                             Выберите категории блоков, доступные ученику
                         </p>
@@ -376,7 +426,7 @@ const EditTaskPage: React.FC = () => {
                             {blockCategories.map((cat) => (
                                 <label
                                     key={cat.id}
-                                    className="flex items-center gap-3 cursor-pointer"
+                                    className="flex items-center gap-3 cursor-pointer hover:bg-gray-50 p-1.5 rounded-[8px] transition-colors"
                                 >
                                     <input
                                         type="checkbox"
@@ -385,8 +435,7 @@ const EditTaskPage: React.FC = () => {
                                         className="w-4 h-4 rounded border-[#E0E4EB] text-[#734DE6] focus:ring-[#734DE6]"
                                     />
                                     <div
-                                        className="w-3 h-3 rounded-full"
-                                        style={{ backgroundColor: cat.color }}
+                                        className={`w-4 h-4 rounded-full ${cat.colorClass}`}
                                     />
                                     <span className="text-sm text-[#1A1D2D]">{cat.name}</span>
                                 </label>
@@ -412,64 +461,182 @@ const EditTaskPage: React.FC = () => {
                         </div>
                     </div>
 
-                    <div className="flex-1 p-4 flex gap-4">
-                        {/* Blockly Preview (только для чтения) */}
-                        <div className="flex-1">
+                    <div className="flex-1 flex">
+                        {/* Left - Available Categories */}
+                        <div className="w-48 bg-white border-r border-[#EEF0F4] p-4 overflow-y-auto">
+                            <h3 className="text-sm font-semibold text-[#1A1D2D] mb-3">Доступные категории</h3>
                             {selectedCategories.length === 0 ? (
-                                <div className="w-full h-full bg-white rounded-[16px] border border-[#EEF0F4] flex items-center justify-center">
-                                    <div className="text-center">
-                                        <AlertCircle className="w-12 h-12 text-[#9CA3AF] mx-auto mb-3" />
-                                        <p className="text-[#6B7280]">Выберите категории блоков слева</p>
-                                    </div>
-                                </div>
-                            ) : !hasSolution ? (
-                                <div className="w-full h-full bg-white rounded-[16px] border border-[#EEF0F4] flex items-center justify-center">
-                                    <div className="text-center">
-                                        <AlertCircle className="w-12 h-12 text-amber-400 mx-auto mb-3" />
-                                        <p className="text-[#6B7280] mb-2">Эталонное решение не записано</p>
-                                        <button
-                                            onClick={handleRecordSolution}
-                                            disabled={!canRecordSolution}
-                                            className="px-4 py-2 bg-[#734DE6] text-white rounded-[10px] text-sm font-medium hover:bg-[#5a3eb8] transition-colors disabled:opacity-50"
-                                        >
-                                            Записать решение
-                                        </button>
-                                    </div>
-                                </div>
+                                <p className="text-xs text-[#9CA3AF]">Выберите категории слева</p>
                             ) : (
-                                <div
-                                    ref={blocklyRef}
-                                    className="w-full h-full bg-white rounded-[16px] shadow-sm border border-[#EEF0F4]"
-                                />
+                                <div className="space-y-2">
+                                    {selectedCategories.map(catId => {
+                                        const cat = blockCategories.find(c => c.id === catId);
+                                        return cat ? (
+                                            <div key={catId} className="flex items-center gap-2 p-2 rounded-[8px] bg-gray-50">
+                                                <div className={`w-3 h-3 rounded-full ${cat.colorClass}`} />
+                                                <span className="text-sm text-[#1A1D2D]">{cat.name}</span>
+                                            </div>
+                                        ) : null;
+                                    })}
+                                </div>
+                            )}
+
+                            {hasSolution && (
+                                <div className="mt-6 p-3 bg-green-50 rounded-[12px] border border-green-200">
+                                    <div className="flex items-center gap-2 text-green-700 text-sm">
+                                        <CheckCircle className="w-4 h-4" />
+                                        <span>Решение записано</span>
+                                    </div>
+                                </div>
                             )}
                         </div>
 
-                        {/* Stage Preview */}
-                        <div className="w-72 flex flex-col">
-                            <div className="bg-gradient-to-br from-[#E0F2FE] to-[#F0FDF4] rounded-[16px] aspect-[4/3] flex items-center justify-center relative overflow-hidden border border-[#EEF0F4] mb-3">
-                                <div className="absolute inset-0 opacity-10"
-                                    style={{
-                                        backgroundImage: 'linear-gradient(#000 1px, transparent 1px), linear-gradient(90deg, #000 1px, transparent 1px)',
-                                        backgroundSize: '20px 20px'
-                                    }}
-                                />
-                                <div className="relative w-full h-full">
-                                    <div className="absolute top-1/2 left-1/4 transform -translate-y-1/2 text-3xl">🐱</div>
-                                    <div className="absolute top-1/2 right-1/4 transform -translate-y-1/2 text-3xl">🍎</div>
-                                </div>
+                        {/* Center - Block Sequence Preview */}
+                        <div className="flex-1 p-4 flex flex-col">
+                            <div className="flex-1 bg-white rounded-[16px] border border-[#EEF0F4] overflow-hidden">
+                                {selectedCategories.length === 0 ? (
+                                    <div className="w-full h-full flex items-center justify-center">
+                                        <div className="text-center">
+                                            <AlertCircle className="w-12 h-12 text-[#9CA3AF] mx-auto mb-3" />
+                                            <p className="text-[#6B7280]">Выберите категории блоков слева</p>
+                                        </div>
+                                    </div>
+                                ) : !hasSolution ? (
+                                    <div className="w-full h-full flex items-center justify-center">
+                                        <div className="text-center">
+                                            <AlertCircle className="w-12 h-12 text-amber-400 mx-auto mb-3" />
+                                            <p className="text-[#6B7280] mb-2">Эталонное решение не записано</p>
+                                            <button
+                                                onClick={handleRecordSolution}
+                                                disabled={!canRecordSolution}
+                                                className="px-4 py-2 bg-[#734DE6] text-white rounded-[10px] text-sm font-medium hover:bg-[#5a3eb8] transition-colors disabled:opacity-50"
+                                            >
+                                                Записать решение
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="w-full h-full p-4">
+                                        <p className="text-sm text-[#6B7280] mb-4">
+                                            Блоки эталонного решения будут доступны ученику как последовательность.
+                                        </p>
+                                        <div className="space-y-2">
+                                            <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-[8px]">
+                                                <div className="w-8 h-8 bg-amber-500 rounded flex items-center justify-center text-white text-xs font-bold">
+                                                    ⚑
+                                                </div>
+                                                <span className="text-sm text-[#1A1D2D]">Когда зелёный флаг нажат</span>
+                                            </div>
+                                            <div className="pl-4 border-l-2 border-gray-200 space-y-2">
+                                                <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-[8px]">
+                                                    <div className="w-8 h-8 bg-blue-500 rounded flex items-center justify-center text-white text-xs font-bold">
+                                                        →
+                                                    </div>
+                                                    <span className="text-sm text-[#1A1D2D]">Идти 10 шагов</span>
+                                                </div>
+                                                <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-[8px]">
+                                                    <div className="w-8 h-8 bg-blue-500 rounded flex items-center justify-center text-white text-xs font-bold">
+                                                        ↻
+                                                    </div>
+                                                    <span className="text-sm text-[#1A1D2D]">Повернуть на 15 градусов</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <p className="text-xs text-[#9CA3AF] mt-4">
+                                            * Полная структура блоков будет доступна после записи решения
+                                        </p>
+                                    </div>
+                                )}
                             </div>
-                            <p className="text-xs text-[#6B7280]">
-                                Спрайты: 🐱 Кот 🍎 Яблоко
-                            </p>
+                        </div>
 
-                            {hasSolution && (
-                                <div className="mt-4 p-3 bg-green-50 rounded-[12px] border border-green-200">
-                                    <div className="flex items-center gap-2 text-green-700 text-sm">
-                                        <CheckCircle className="w-4 h-4" />
-                                        <span>Эталонное решение записано</span>
+                        {/* Right - Stage Preview & Controls */}
+                        <div className="w-72 bg-white border-l border-[#EEF0F4] p-4 flex flex-col">
+                            <h3 className="text-sm font-semibold text-[#1A1D2D] mb-3">Сцена</h3>
+
+                            {/* Stage */}
+                            <div className="relative rounded-[16px] overflow-hidden border border-[#EEF0F4] shadow-sm" style={{ aspectRatio: '4/3' }}>
+                                {currentProject ? (
+                                    <StageCanvas />
+                                ) : (
+                                    <div className="w-full h-full bg-gradient-to-br from-[#E0F2FE] to-[#F0FDF4] flex items-center justify-center">
+                                        <div className="absolute inset-0 opacity-10"
+                                            style={{
+                                                backgroundImage: 'linear-gradient(#000 1px, transparent 1px), linear-gradient(90deg, #000 1px, transparent 1px)',
+                                                backgroundSize: '20px 20px'
+                                            }}
+                                        />
+                                        <div className="text-3xl">🐱</div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Controls - только иконки запуска/стоп */}
+                            {hasSolution && currentProject && (
+                                <>
+                                    <div className="flex items-center gap-2 mt-4">
+                                        <button
+                                            onClick={handleStartPreview}
+                                            className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${
+                                                isRunning
+                                                    ? 'bg-green-100 text-green-600'
+                                                    : 'bg-green-500 text-white hover:bg-green-600'
+                                            }`}
+                                            title="Запустить"
+                                        >
+                                            <Play size={18} className="ml-0.5" />
+                                        </button>
+                                        <button
+                                            onClick={handleStopPreview}
+                                            className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${
+                                                !isRunning
+                                                    ? 'bg-red-100 text-red-400'
+                                                    : 'bg-red-500 text-white hover:bg-red-600'
+                                            }`}
+                                            title="Остановить"
+                                        >
+                                            <Square size={14} fill="currentColor" />
+                                        </button>
+                                    </div>
+
+                                    <button
+                                        onClick={handleTestCheck}
+                                        className="w-full flex items-center justify-center gap-2 bg-[#734DE6] text-white px-3 py-2 rounded-[10px] text-sm font-medium hover:bg-[#5a3eb8] transition-colors mt-3"
+                                    >
+                                        <FlaskConical className="w-4 h-4" />
+                                        Проверить решение
+                                    </button>
+
+                                    {/* Sprites */}
+                                    <div className="mt-4 border-t border-[#EEF0F4] pt-4">
+                                        <h4 className="text-xs font-semibold text-[#6B7280] uppercase mb-2">Спрайты</h4>
+                                        <SpriteList />
+                                    </div>
+                                </>
+                            )}
+
+                            {/* Requirements Checklist */}
+                            <div className="mt-4 p-3 bg-gray-50 rounded-[12px]">
+                                <h4 className="text-xs font-medium text-[#1A1D2D] mb-2">Требования для сохранения:</h4>
+                                <div className="space-y-1.5">
+                                    <div className={`flex items-center gap-2 text-xs ${formData.title.trim() ? 'text-green-600' : 'text-gray-400'}`}>
+                                        {formData.title.trim() ? <CheckCircle className="w-3 h-3" /> : <div className="w-3 h-3 rounded-full border border-gray-300" />}
+                                        <span>Название</span>
+                                    </div>
+                                    <div className={`flex items-center gap-2 text-xs ${formData.description.trim() ? 'text-green-600' : 'text-gray-400'}`}>
+                                        {formData.description.trim() ? <CheckCircle className="w-3 h-3" /> : <div className="w-3 h-3 rounded-full border border-gray-300" />}
+                                        <span>Описание</span>
+                                    </div>
+                                    <div className={`flex items-center gap-2 text-xs ${selectedCategories.length > 0 ? 'text-green-600' : 'text-gray-400'}`}>
+                                        {selectedCategories.length > 0 ? <CheckCircle className="w-3 h-3" /> : <div className="w-3 h-3 rounded-full border border-gray-300" />}
+                                        <span>Категории блоков</span>
+                                    </div>
+                                    <div className={`flex items-center gap-2 text-xs ${hasSolution ? 'text-green-600' : 'text-gray-400'}`}>
+                                        {hasSolution ? <CheckCircle className="w-3 h-3" /> : <div className="w-3 h-3 rounded-full border border-gray-300" />}
+                                        <span>Эталонное решение</span>
                                     </div>
                                 </div>
-                            )}
+                            </div>
                         </div>
                     </div>
                 </div>

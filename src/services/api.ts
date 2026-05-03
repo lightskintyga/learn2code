@@ -40,6 +40,7 @@ export interface TaskDto {
     expectedOutput: string;
     checkLevel: 'State' | 'Trace' | 'Ast';
     blockCategories?: string[];
+    referenceProjectJson?: string;
 }
 
 export interface GroupDto {
@@ -132,6 +133,7 @@ export interface CreateTaskRequest {
     expectedOutput: string;
     checkLevel: 'State' | 'Trace' | 'Ast';
     blockCategories?: string[];
+    referenceProjectJson?: string;
 }
 
 export interface UpdateTaskRequest {
@@ -142,6 +144,7 @@ export interface UpdateTaskRequest {
     expectedOutput: string;
     checkLevel: 'State' | 'Trace' | 'Ast';
     blockCategories?: string[];
+    referenceProjectJson?: string;
 }
 
 export interface CreateGroupRequest {

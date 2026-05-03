@@ -39,6 +39,8 @@ const App: React.FC = () => {
   };
 
   return (
+    <>
+    <ToastContainer />
     <Routes>
       <Route path="/login" element={
         isAuthenticated ? <Navigate to={getHomeRoute()} /> : <LoginPage />
@@ -125,6 +127,7 @@ const App: React.FC = () => {
           : <Navigate to="/" />
       } />
     </Routes>
+    </>
   );
 };
 
