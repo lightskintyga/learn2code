@@ -10,6 +10,13 @@ import CoursePage from '@/pages/CoursePage';
 import EditCoursePage from '@/pages/EditCoursePage';
 import EditTaskPage from '@/pages/EditTaskPage';
 import StartPage from "@/pages/StartPage";
+import AdminDashboard from '@/pages/AdminDashboard';
+import AdminGroups from '@/pages/AdminGroups';
+import AdminGroupEditor from '@/pages/AdminGroupEditor';
+import AdminStudents from '@/pages/AdminStudents';
+import AdminStudentNew from '@/pages/AdminStudentNew';
+import AdminTeachers from '@/pages/AdminTeachers';
+import AdminCourses from '@/pages/AdminCourses';
 
 const App: React.FC = () => {
   const { isAuthenticated, user } = useAuthStore();
@@ -19,7 +26,7 @@ const App: React.FC = () => {
     if (!user) return '/';
     switch (user.role) {
       case 'admin':
-        return '/teacher'; // Admin sees teacher dashboard for now
+        return '/admin';
       case 'teacher':
         return '/teacher';
       case 'student':
@@ -68,6 +75,46 @@ const App: React.FC = () => {
         <Route path="/teacher/course/:courseId/lesson/:lessonId/task/:taskId/edit" element={
           isAuthenticated && (user?.role === 'teacher' || user?.role === 'admin')
               ? <EditTaskPage />
+              : <Navigate to="/" />
+        } />
+        <Route path="/admin" element={
+          isAuthenticated && user?.role === 'admin'
+              ? <AdminDashboard />
+              : <Navigate to="/" />
+        } />
+        <Route path="/admin/groups" element={
+          isAuthenticated && user?.role === 'admin'
+              ? <AdminGroups />
+              : <Navigate to="/" />
+        } />
+        <Route path="/admin/groups/new" element={
+          isAuthenticated && user?.role === 'admin'
+              ? <AdminGroupEditor />
+              : <Navigate to="/" />
+        } />
+        <Route path="/admin/groups/:groupId" element={
+          isAuthenticated && user?.role === 'admin'
+              ? <AdminGroupEditor />
+              : <Navigate to="/" />
+        } />
+        <Route path="/admin/students" element={
+          isAuthenticated && user?.role === 'admin'
+              ? <AdminStudents />
+              : <Navigate to="/" />
+        } />
+        <Route path="/admin/students/new" element={
+          isAuthenticated && user?.role === 'admin'
+              ? <AdminStudentNew />
+              : <Navigate to="/" />
+        } />
+        <Route path="/admin/teachers" element={
+          isAuthenticated && user?.role === 'admin'
+              ? <AdminTeachers />
+              : <Navigate to="/" />
+        } />
+        <Route path="/admin/courses" element={
+          isAuthenticated && user?.role === 'admin'
+              ? <AdminCourses />
               : <Navigate to="/" />
         } />
       </Routes>
