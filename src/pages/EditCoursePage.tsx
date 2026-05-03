@@ -1,100 +1,175 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ChevronLeft, BookOpen, Settings, Save, Eye, Plus, Edit2, Trash2, GripVertical } from 'lucide-react';
+import { ChevronLeft, BookOpen, Settings, Save, Eye, Plus, Edit2, Trash2, GripVertical, Loader2 } from 'lucide-react';
+import { useCourseStore } from '@/store/useCourseStore';
+import { useToastStore } from '@/store/useToastStore';
+import { LessonDto } from '@/services/api';
+import AddLessonModal from '@/components/modals/AddLessonModal';
+import EditLessonModal from '@/components/modals/EditLessonModal';
+import ConfirmDeleteModal from '@/components/modals/ConfirmDeleteModal';
 
-// Моковые данные курса
-const mockCourse = {
-    id: '1',
-    title: 'Мои первые шаги',
-    description: 'Научись основам программирования с котом Скретчем!',
-    emoji: '🐱',
-    status: 'published',
-    lessons: [
-        {
-            id: 'lesson-1',
-            order: 1,
-            title: 'Знакомство со Скретчем',
-            tasks: [
-                { id: 'task-1-1', title: 'Перемести кота', order: 1 },
-                { id: 'task-1-2', title: 'Измени размер', order: 2 },
-                { id: 'task-1-3', title: 'Добавь звук', order: 3 },
-            ],
-        },
-        {
-            id: 'lesson-2',
-            order: 2,
-            title: 'Движение',
-            tasks: [
-                { id: 'task-2-1', title: 'Кот идет к яблоку', order: 1 },
-                { id: 'task-2-2', title: 'Кот ходит по кругу', order: 2 },
-            ],
-        },
-    ],
-};
+// Расширенный тип урока с заданиями для UI
+interface LessonWithTasks extends LessonDto {
+    tasks: { id: string; title: string; order: number }[];
+}
 
 const EditCoursePage: React.FC = () => {
-    const { courseId } = useParams();
+    const { courseId } = useParams<{ courseId: string }>();
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState<'content' | 'settings'>('content');
-    const [expandedLessons, setExpandedLessons] = useState<string[]>(['lesson-1']);
-    const [course, setCourse] = useState(mockCourse);
-    const [formData, setFormData] = useState({
-        title: course.title,
-        description: course.description,
-        emoji: course.emoji,
-        status: course.status,
-    });
+    const [expandedLessons, setExpandedLessons] = useState<string[]>([]);
+    const [isSaving, setIsSaving] = useState(false);
+    const [isAddLessonModalOpen, setIsAddLessonModalOpen] = useState(false);
+    const [isEditLessonModalOpen, setIsEditLessonModalOpen] = useState(false);
+    const [editingLesson, setEditingLesson] = useState<LessonDto | null>(null);
+    const [isDeleteLessonModalOpen, setIsDeleteLessonModalOpen] = useState(false);
+    const [deletingLesson, setDeletingLesson] = useState<LessonDto | null>(null);
+
+    const {
+        currentCourse,
+        lessons,
+        isLoading,
+        error,
+        fetchCourse,
+        fetchLessons,
+        createCourse,
+        updateCourse,
+        createLesson,
+        updateLesson,
+        deleteLesson,
+        clearError,
+    } = useCourseStore();
+
+    const { addToast } = useToastStore();
 
     const isNewCourse = courseId === 'new';
 
+    // Форма данных курса
+    const [formData, setFormData] = useState({
+        title: '',
+        description: '',
+        emoji: '📚',
+        status: 'published' as 'published' | 'draft',
+    });
+
+    // Загружаем данные курса
+    useEffect(() => {
+        if (!isNewCourse && courseId) {
+            fetchCourse(courseId);
+            fetchLessons(courseId);
+        }
+    }, [isNewCourse, courseId, fetchCourse, fetchLessons]);
+
+    // Обновляем форму при загрузке курса
+    useEffect(() => {
+        if (currentCourse && !isNewCourse) {
+            setFormData({
+                title: currentCourse.title,
+                description: currentCourse.description,
+                emoji: '📚', // TODO: Хранить в API
+                status: 'published', // TODO: Хранить в API
+            });
+        }
+    }, [currentCourse, isNewCourse]);
+
+    // Преобразуем уроки в формат с заданиями
+    const lessonsWithTasks: LessonWithTasks[] = lessons.map(lesson => ({
+        ...lesson,
+        tasks: [], // TODO: Получать задания из API
+    }));
+
     const toggleLesson = (lessonId: string) => {
-        setExpandedLessons(prev => 
-            prev.includes(lessonId) 
+        setExpandedLessons(prev =>
+            prev.includes(lessonId)
                 ? prev.filter(id => id !== lessonId)
                 : [...prev, lessonId]
         );
     };
 
-    const handleSave = () => {
-        // TODO: Сохранить курс
-        alert('Курс сохранен!');
-        if (isNewCourse) {
-            navigate('/teacher');
+    const handleSave = async () => {
+        setIsSaving(true);
+
+        try {
+            if (isNewCourse) {
+                // Создаем новый курс
+                const course = await createCourse({
+                    title: formData.title,
+                    description: formData.description,
+                });
+                if (course) {
+                    addToast('Курс успешно создан', 'success');
+                    navigate(`/teacher/course/${course.id}/edit`);
+                }
+            } else if (courseId) {
+                // Обновляем существующий курс
+                await updateCourse(courseId, {
+                    title: formData.title,
+                    description: formData.description,
+                });
+                addToast('Изменения сохранены', 'success');
+            }
+        } catch {
+            // Ошибка уже обрабатывается в store
+        } finally {
+            setIsSaving(false);
         }
     };
 
-    const handleAddLesson = () => {
-        const newLesson = {
-            id: `lesson-${Date.now()}`,
-            order: course.lessons.length + 1,
-            title: `Урок ${course.lessons.length + 1}`,
-            tasks: [],
-        };
-        setCourse(prev => ({
-            ...prev,
-            lessons: [...prev.lessons, newLesson],
-        }));
-        setExpandedLessons(prev => [...prev, newLesson.id]);
+    const handleAddLessonSubmit = async (data: { title: string; description: string; order: number }) => {
+        if (!courseId || isNewCourse) return;
+
+        const lesson = await createLesson({
+            title: data.title,
+            description: data.description,
+            order: data.order,
+            courseId: courseId,
+        });
+
+        if (lesson) {
+            setExpandedLessons(prev => [...prev, lesson.id]);
+            addToast('Урок добавлен', 'success');
+            setIsAddLessonModalOpen(false);
+        }
+    };
+
+    const handleDeleteLessonClick = (lesson: LessonDto) => {
+        setDeletingLesson(lesson);
+        setIsDeleteLessonModalOpen(true);
+    };
+
+    const handleConfirmDeleteLesson = async () => {
+        if (!deletingLesson) return;
+        const success = await deleteLesson(deletingLesson.id);
+        if (success) {
+            addToast('Урок удален', 'success');
+            setIsDeleteLessonModalOpen(false);
+            setDeletingLesson(null);
+        }
+    };
+
+    const handleEditLessonClick = (lesson: LessonDto) => {
+        setEditingLesson(lesson);
+        setIsEditLessonModalOpen(true);
+    };
+
+    const handleEditLessonSubmit = async (data: { title: string; description: string; order: number }) => {
+        if (!editingLesson) return;
+
+        const lesson = await updateLesson(editingLesson.id, {
+            title: data.title,
+            description: data.description,
+            order: data.order,
+        });
+
+        if (lesson) {
+            addToast('Урок обновлен', 'success');
+            setIsEditLessonModalOpen(false);
+            setEditingLesson(null);
+        }
     };
 
     const handleAddTask = (lessonId: string) => {
-        const lesson = course.lessons.find(l => l.id === lessonId);
-        if (!lesson) return;
-        
-        const newTask = {
-            id: `task-${Date.now()}`,
-            title: `Задание ${lesson.tasks.length + 1}`,
-            order: lesson.tasks.length + 1,
-        };
-        
-        setCourse(prev => ({
-            ...prev,
-            lessons: prev.lessons.map(l => 
-                l.id === lessonId 
-                    ? { ...l, tasks: [...l.tasks, newTask] }
-                    : l
-            ),
-        }));
+        navigate(`/teacher/course/${courseId}/lesson/${lessonId}/task/new/edit`);
     };
 
     const handleEditTask = (lessonId: string, taskId: string) => {
@@ -106,7 +181,7 @@ const EditCoursePage: React.FC = () => {
             {/* Header */}
             <header className="bg-white border-b border-[#EEF0F4]">
                 <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
-                    <button 
+                    <button
                         onClick={() => navigate('/teacher')}
                         className="flex items-center gap-2 text-[#6B7280] hover:text-[#1A1D2D] transition-colors"
                     >
@@ -118,16 +193,32 @@ const EditCoursePage: React.FC = () => {
                             <Eye className="w-4 h-4" />
                             Предпросмотр
                         </button>
-                        <button 
+                        <button
                             onClick={handleSave}
-                            className="flex items-center gap-2 bg-[#734DE6] text-white px-4 py-2 rounded-[10px] text-sm font-medium hover:bg-[#5a3eb8] transition-colors"
+                            disabled={isSaving || !formData.title.trim()}
+                            className="flex items-center gap-2 bg-[#734DE6] text-white px-4 py-2 rounded-[10px] text-sm font-medium hover:bg-[#5a3eb8] transition-colors disabled:opacity-50"
                         >
-                            <Save className="w-4 h-4" />
+                            {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                             Сохранить
                         </button>
                     </div>
                 </div>
             </header>
+
+            {/* Error Message */}
+            {error && (
+                <div className="max-w-4xl mx-auto px-4 pt-4">
+                    <div className="bg-red-50 border border-red-200 rounded-[12px] p-4 flex items-center justify-between">
+                        <span className="text-red-600 text-sm">{error}</span>
+                        <button
+                            onClick={clearError}
+                            className="text-red-600 hover:text-red-700 text-sm font-medium"
+                        >
+                            ✕
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {/* Tabs */}
             <div className="max-w-4xl mx-auto px-4 py-4">
@@ -162,11 +253,14 @@ const EditCoursePage: React.FC = () => {
                         {/* Course Info Card */}
                         <div className="bg-white rounded-[16px] p-5 shadow-sm border border-[#EEF0F4]">
                             <div className="mb-4">
-                                <label className="block text-sm font-medium text-[#1A1D2D] mb-2">Название курса</label>
+                                <label className="block text-sm font-medium text-[#1A1D2D] mb-2">
+                                    Название курса <span className="text-red-500">*</span>
+                                </label>
                                 <input
                                     type="text"
                                     value={formData.title}
                                     onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                                    placeholder="Введите название курса"
                                     className="w-full bg-[#F8FAFB] border border-[#E0E4EB] rounded-[10px] px-3 py-2.5 text-sm focus:ring-2 focus:ring-[#734DE6] focus:border-transparent outline-none"
                                 />
                             </div>
@@ -176,6 +270,7 @@ const EditCoursePage: React.FC = () => {
                                     value={formData.description}
                                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                                     rows={3}
+                                    placeholder="Опишите, что ученики изучат в этом курсе"
                                     className="w-full bg-[#F8FAFB] border border-[#E0E4EB] rounded-[10px] px-3 py-2.5 text-sm focus:ring-2 focus:ring-[#734DE6] focus:border-transparent outline-none resize-none"
                                 />
                             </div>
@@ -218,79 +313,127 @@ const EditCoursePage: React.FC = () => {
                         </div>
 
                         {/* Lessons Section */}
-                        <div>
-                            <div className="flex items-center justify-between mb-3">
-                                <h2 className="text-lg font-bold text-[#1A1D2D]">Уроки</h2>
-                                <button 
-                                    onClick={handleAddLesson}
-                                    className="flex items-center gap-2 border border-[#E0E4EB] text-[#1A1D2D] px-3 py-2 rounded-[10px] text-sm hover:bg-gray-50 transition-colors"
-                                >
-                                    <Plus className="w-4 h-4" />
-                                    Добавить урок
-                                </button>
-                            </div>
+                        {!isNewCourse && (
+                            <div>
+                                <div className="flex items-center justify-between mb-3">
+                                    <h2 className="text-lg font-bold text-[#1A1D2D]">Уроки</h2>
+                                    <button
+                                        onClick={() => setIsAddLessonModalOpen(true)}
+                                        disabled={isLoading}
+                                        className="flex items-center gap-2 border border-[#E0E4EB] text-[#1A1D2D] px-3 py-2 rounded-[10px] text-sm hover:bg-gray-50 transition-colors disabled:opacity-50"
+                                    >
+                                        {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                                        Добавить урок
+                                    </button>
+                                </div>
 
-                            <div className="space-y-3">
-                                {course.lessons.map((lesson) => (
-                                    <div key={lesson.id} className="bg-white rounded-[16px] shadow-sm border border-[#EEF0F4] overflow-hidden">
-                                        {/* Lesson Header */}
-                                        <div 
-                                            className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 transition-colors"
-                                            onClick={() => toggleLesson(lesson.id)}
-                                        >
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-8 h-8 bg-[rgba(115,77,230,0.1)] rounded-full flex items-center justify-center text-[#734DE6] font-semibold text-sm">
-                                                    {lesson.order}
-                                                </div>
-                                                <h3 className="font-semibold text-[#1A1D2D]">{lesson.title}</h3>
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <button className="p-1.5 text-[#6B7280] hover:text-[#1A1D2D] transition-colors">
-                                                    <Edit2 className="w-4 h-4" />
-                                                </button>
-                                                <button className="p-1.5 text-[#6B7280] hover:text-red-500 transition-colors">
-                                                    <Trash2 className="w-4 h-4" />
-                                                </button>
-                                                <div className="p-1.5 text-[#6B7280] cursor-grab">
-                                                    <GripVertical className="w-4 h-4" />
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* Tasks List */}
-                                        {expandedLessons.includes(lesson.id) && (
-                                            <div className="border-t border-[#EEF0F4]">
-                                                {lesson.tasks.map((task) => (
-                                                    <div 
-                                                        key={task.id}
-                                                        className="flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors"
-                                                    >
-                                                        <div className="flex items-center gap-3">
-                                                            <div className="w-2 h-2 rounded-full bg-[#E0E4EB]" />
-                                                            <span className="text-sm text-[#1A1D2D]">{task.title}</span>
-                                                        </div>
-                                                        <button 
-                                                            onClick={() => handleEditTask(lesson.id, task.id)}
-                                                            className="flex items-center gap-1 bg-[#14B8A6] text-white px-2.5 py-1 rounded-[6px] text-xs hover:bg-[#0d9488] transition-colors"
-                                                        >
-                                                            Редактировать
-                                                            <ChevronLeft className="w-3 h-3 rotate-180" />
-                                                        </button>
-                                                    </div>
-                                                ))}
-                                                <button 
-                                                    onClick={() => handleAddTask(lesson.id)}
-                                                    className="flex items-center gap-2 w-full px-4 py-3 text-[#734DE6] text-sm hover:bg-gray-50 transition-colors border-t border-[#EEF0F4]"
-                                                >
-                                                    <Plus className="w-4 h-4" />
-                                                    Добавить задание
-                                                </button>
-                                            </div>
-                                        )}
+                                {isLoading && lessons.length === 0 && (
+                                    <div className="flex flex-col items-center justify-center py-8 bg-white rounded-[16px] border border-[#EEF0F4]">
+                                        <Loader2 className="w-6 h-6 text-[#734DE6] animate-spin mb-3" />
+                                        <p className="text-[#6B7280] text-sm">Загрузка уроков...</p>
                                     </div>
-                                ))}
+                                )}
+
+                                <div className="space-y-3">
+                                    {lessonsWithTasks.map((lesson) => (
+                                        <div key={lesson.id} className="bg-white rounded-[16px] shadow-sm border border-[#EEF0F4] overflow-hidden">
+                                            {/* Lesson Header */}
+                                            <div
+                                                className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+                                                onClick={() => toggleLesson(lesson.id)}
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-8 h-8 bg-[rgba(115,77,230,0.1)] rounded-full flex items-center justify-center text-[#734DE6] font-semibold text-sm">
+                                                        {lesson.order}
+                                                    </div>
+                                                    <h3 className="font-semibold text-[#1A1D2D]">{lesson.title}</h3>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleEditLessonClick(lesson);
+                                                        }}
+                                                        className="p-1.5 text-[#6B7280] hover:text-[#1A1D2D] transition-colors"
+                                                    >
+                                                        <Edit2 className="w-4 h-4" />
+                                                    </button>
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleDeleteLessonClick(lesson);
+                                                        }}
+                                                        className="p-1.5 text-[#6B7280] hover:text-red-500 transition-colors"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                    <div className="p-1.5 text-[#6B7280] cursor-grab">
+                                                        <GripVertical className="w-4 h-4" />
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Tasks List */}
+                                            {expandedLessons.includes(lesson.id) && (
+                                                <div className="border-t border-[#EEF0F4]">
+                                                    {lesson.tasks.length === 0 ? (
+                                                        <div className="px-4 py-3 text-sm text-[#9CA3AF]">
+                                                            В этом уроке пока нет заданий
+                                                        </div>
+                                                    ) : (
+                                                        lesson.tasks.map((task) => (
+                                                            <div
+                                                                key={task.id}
+                                                                className="flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors"
+                                                            >
+                                                                <div className="flex items-center gap-3">
+                                                                    <div className="w-2 h-2 rounded-full bg-[#E0E4EB]" />
+                                                                    <span className="text-sm text-[#1A1D2D]">{task.title}</span>
+                                                                </div>
+                                                                <button
+                                                                    onClick={() => handleEditTask(lesson.id, task.id)}
+                                                                    className="flex items-center gap-1 bg-[#14B8A6] text-white px-2.5 py-1 rounded-[6px] text-xs hover:bg-[#0d9488] transition-colors"
+                                                                >
+                                                                    Редактировать
+                                                                    <ChevronLeft className="w-3 h-3 rotate-180" />
+                                                                </button>
+                                                            </div>
+                                                        ))
+                                                    )}
+                                                    <button
+                                                        onClick={() => handleAddTask(lesson.id)}
+                                                        className="flex items-center gap-2 w-full px-4 py-3 text-[#734DE6] text-sm hover:bg-gray-50 transition-colors border-t border-[#EEF0F4]"
+                                                    >
+                                                        <Plus className="w-4 h-4" />
+                                                        Добавить задание
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {lessonsWithTasks.length === 0 && !isLoading && (
+                                    <div className="bg-white rounded-[16px] p-8 text-center border border-[#EEF0F4]">
+                                        <p className="text-[#6B7280] mb-4">В этом курсе пока нет уроков</p>
+                                        <button
+                                            onClick={() => setIsAddLessonModalOpen(true)}
+                                            className="text-[#734DE6] font-medium hover:underline"
+                                        >
+                                            Добавить первый урок
+                                        </button>
+                                    </div>
+                                )}
                             </div>
-                        </div>
+                        )}
+
+                        {isNewCourse && (
+                            <div className="bg-amber-50 border border-amber-200 rounded-[12px] p-4">
+                                <p className="text-amber-700 text-sm">
+                                    Сначала сохраните курс, чтобы добавить уроки
+                                </p>
+                            </div>
+                        )}
                     </div>
                 )}
 
@@ -302,6 +445,45 @@ const EditCoursePage: React.FC = () => {
                     </div>
                 )}
             </div>
+
+            {/* Add Lesson Modal */}
+            <AddLessonModal
+                isOpen={isAddLessonModalOpen}
+                onClose={() => setIsAddLessonModalOpen(false)}
+                onSubmit={handleAddLessonSubmit}
+                defaultOrder={lessons.length + 1}
+                isLoading={isLoading}
+            />
+
+            {/* Edit Lesson Modal */}
+            <EditLessonModal
+                isOpen={isEditLessonModalOpen}
+                onClose={() => {
+                    setIsEditLessonModalOpen(false);
+                    setEditingLesson(null);
+                }}
+                onSubmit={handleEditLessonSubmit}
+                initialData={editingLesson ? {
+                    title: editingLesson.title,
+                    description: editingLesson.description || '',
+                    order: editingLesson.order,
+                } : null}
+                isLoading={isLoading}
+            />
+
+            {/* Confirm Delete Lesson Modal */}
+            <ConfirmDeleteModal
+                isOpen={isDeleteLessonModalOpen}
+                onClose={() => {
+                    setIsDeleteLessonModalOpen(false);
+                    setDeletingLesson(null);
+                }}
+                onConfirm={handleConfirmDeleteLesson}
+                title="Удалить урок"
+                message="Вы уверены, что хотите удалить этот урок?"
+                itemName={deletingLesson?.title}
+                isLoading={isLoading}
+            />
         </div>
     );
 };

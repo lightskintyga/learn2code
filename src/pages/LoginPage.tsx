@@ -6,7 +6,7 @@ import starIcon from '/starIcon.svg';
 import gameIcon from '/gameIcon.svg';
 
 const LoginPage: React.FC = () => {
-    const [login, setLogin] = useState('');
+    const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const { login: doLogin, isLoading, error, clearError } = useAuthStore();
@@ -15,7 +15,7 @@ const LoginPage: React.FC = () => {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         clearError();
-        const success = await doLogin({ username: login, password });
+        const success = await doLogin({ email, password });
         if (success) {
             navigate('/');
         }
@@ -83,17 +83,17 @@ const LoginPage: React.FC = () => {
                             </div>
                         )}
 
-                        {/* Login Field */}
+                        {/* Email Field */}
                         <div>
                             <label className="block text-sm font-medium text-[#1A1D2D] mb-2">
-                                Логин
+                                Email
                             </label>
                             <input
-                                type="text"
-                                value={login}
-                                onChange={(e) => setLogin(e.target.value)}
+                                type="email"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
                                 className="w-full bg-[#F8FAFB] border border-[#E0E4EB] rounded-[12px] px-4 py-3 text-sm focus:ring-2 focus:ring-[#734DE6] focus:border-transparent outline-none transition-all placeholder:text-[#9CA3AF]"
-                                placeholder="твой логин"
+                                placeholder="your@email.com"
                                 required
                             />
                         </div>

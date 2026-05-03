@@ -1,89 +1,33 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { v4 as uuidv4 } from 'uuid';
 import { User, UserRole } from '@/types';
 import { LoginCredentials, RegisterData } from '@/types/auth';
 import { LOCAL_STORAGE_KEYS } from '@/utils/constants';
 import { useProjectStore } from '@/store/useProjectStore';
+import { api, UserDto } from '@/services/api';
 
-interface StoredUser extends User {
-    password: string; // В реальном приложении хэш, сейчас для localStorage
-}
+// Конвертер UserDto в User
+const convertUserDto = (userDto: UserDto): User => ({
+    id: userDto.id,
+    username: userDto.email.split('@')[0],
+    email: userDto.email,
+    role: userDto.role.toLowerCase() as UserRole,
+    displayName: userDto.displayName,
+    createdAt: userDto.createdAt,
+});
 
 interface AuthStore {
     user: User | null;
     isAuthenticated: boolean;
     isLoading: boolean;
     error: string | null;
+    token: string | null;
 
     login: (credentials: LoginCredentials) => Promise<boolean>;
-    register: (data: RegisterData) => Promise<boolean>;
     logout: () => void;
     clearError: () => void;
     updateProfile: (updates: Partial<User>) => void;
-}
-
-const DEMO_USERS: StoredUser[] = [
-    {
-        id: 'admin-1',
-        username: 'admin',
-        email: 'admin@edu.com',
-        role: 'admin',
-        displayName: 'Администратор',
-        password: 'admin',
-        createdAt: new Date().toISOString(),
-    },
-    {
-        id: 'teacher-1',
-        username: 'teacher',
-        email: 'teacher@edu.com',
-        role: 'teacher',
-        displayName: 'Иван Петрович',
-        password: 'teacher',
-        createdAt: new Date().toISOString(),
-    },
-    {
-        id: 'student-1',
-        username: 'student',
-        email: 'student@edu.com',
-        role: 'student',
-        displayName: 'Алиса',
-        password: 'student',
-        createdAt: new Date().toISOString(),
-        classId: 'class-1',
-    },
-];
-
-const normalizeIdentifier = (value: string) => value.trim().toLowerCase();
-
-// Хелпер для работы с пользователями в localStorage
-const getStoredUsers = (): StoredUser[] => {
-    const data = localStorage.getItem(LOCAL_STORAGE_KEYS.USERS);
-    return data ? JSON.parse(data) : [];
-};
-
-const saveStoredUsers = (users: StoredUser[]) => {
-    localStorage.setItem(LOCAL_STORAGE_KEYS.USERS, JSON.stringify(users));
-};
-
-const ensureDemoUsers = () => {
-    const users = getStoredUsers();
-    if (users.length === 0) {
-        saveStoredUsers(DEMO_USERS);
-    }
-};
-
-const getProjectStorageKey = (userId: string) => `${LOCAL_STORAGE_KEYS.PROJECTS}_${userId}`;
-const getProjectsForUser = (userId: string) => {
-    const data = localStorage.getItem(getProjectStorageKey(userId));
-    return data ? JSON.parse(data) : [];
-};
-const setProjectsForUser = (userId: string, projects: unknown[]) => {
-    localStorage.setItem(getProjectStorageKey(userId), JSON.stringify(projects));
-};
-
-if (typeof window !== 'undefined') {
-    ensureDemoUsers();
+    initAuth: () => void;
 }
 
 export const useAuthStore = create<AuthStore>()(
@@ -93,97 +37,60 @@ export const useAuthStore = create<AuthStore>()(
             isAuthenticated: false,
             isLoading: false,
             error: null,
+            token: null,
+
+            initAuth: () => {
+                const { token } = get();
+                if (token) {
+                    api.setToken(token);
+                }
+            },
 
             login: async (credentials: LoginCredentials) => {
                 set({ isLoading: true, error: null });
-                ensureDemoUsers();
 
-                // TODO: Заменить на API запрос
-                // const response = await api.post('/auth/login', credentials);
-                // set({ user: response.data.user, isAuthenticated: true, isLoading: false });
+                try {
+                    // Используем API для входа
+                    const response = await api.login({
+                        email: credentials.email,
+                        password: credentials.password,
+                    });
 
-                // Имитация задержки сети
-                await new Promise(resolve => setTimeout(resolve, 300));
+                    const token = response.token;
+                    const user = convertUserDto(response.user);
 
-                const users = getStoredUsers();
-                const loginId = normalizeIdentifier(credentials.username);
-                const password = credentials.password;
-                const found = users.find(
-                    u =>
-                        (normalizeIdentifier(u.username) === loginId || normalizeIdentifier(u.email) === loginId) &&
-                        u.password === password
-                );
+                    // Устанавливаем токен для API
+                    api.setToken(token);
 
-                if (found) {
-                    const { password: _password, ...user } = found;
+                    // Загружаем проекты пользователя
                     useProjectStore.getState().hydrateProjectsForUser(user.id);
-                    set({ user, isAuthenticated: true, isLoading: false, error: null });
+
+                    set({
+                        user,
+                        isAuthenticated: true,
+                        isLoading: false,
+                        error: null,
+                        token,
+                    });
+
                     return true;
-                }
-
-                set({ error: 'Неверное имя пользователя или пароль', isLoading: false });
-                return false;
-            },
-
-            register: async (data: RegisterData) => {
-                set({ isLoading: true, error: null });
-                ensureDemoUsers();
-
-                // TODO: Заменить на API запрос
-                // const response = await api.post('/auth/register', data);
-                // set({ user: response.data.user, isAuthenticated: true, isLoading: false });
-
-                await new Promise(resolve => setTimeout(resolve, 300));
-
-                const username = data.username.trim();
-                const email = data.email.trim().toLowerCase();
-                const displayName = data.displayName.trim();
-                const password = data.password;
-                const confirmPassword = data.confirmPassword;
-
-                if (password !== confirmPassword) {
-                    set({ error: 'Пароли не совпадают', isLoading: false });
+                } catch (error) {
+                    const errorMessage = error instanceof Error ? error.message : 'Неверное имя пользователя или пароль';
+                    set({ error: errorMessage, isLoading: false });
                     return false;
                 }
-
-                if (password.length < 6) {
-                    set({ error: 'Пароль должен быть не менее 6 символов', isLoading: false });
-                    return false;
-                }
-
-                const users = getStoredUsers();
-                const exists = users.find(
-                    u => normalizeIdentifier(u.username) === normalizeIdentifier(username) || normalizeIdentifier(u.email) === email
-                );
-
-                if (exists) {
-                    set({ error: 'Пользователь с таким именем или email уже существует', isLoading: false });
-                    return false;
-                }
-
-                const newUser: StoredUser = {
-                    id: uuidv4(),
-                    username,
-                    email,
-                    role: data.role,
-                    displayName,
-                    password,
-                    createdAt: new Date().toISOString(),
-                    classId: data.classCode?.trim() || undefined,
-                };
-
-                users.push(newUser);
-                saveStoredUsers(users);
-
-                const { password: _password, ...user } = newUser;
-                useProjectStore.getState().hydrateProjectsForUser(user.id);
-                set({ user, isAuthenticated: true, isLoading: false, error: null });
-                return true;
             },
 
             logout: () => {
                 useProjectStore.getState().clearCurrentProject();
-                set({ user: null, isAuthenticated: false, error: null, isLoading: false });
+                api.setToken(null);
+                set({
+                    user: null,
+                    isAuthenticated: false,
+                    error: null,
+                    isLoading: false,
+                    token: null,
+                });
             },
 
             clearError: () => {
@@ -197,15 +104,7 @@ export const useAuthStore = create<AuthStore>()(
                 const updatedUser = { ...user, ...updates };
                 set({ user: updatedUser });
 
-                // Обновляем в localStorage
-                const users = getStoredUsers();
-                const idx = users.findIndex(u => u.id === user.id);
-                if (idx !== -1) {
-                    users[idx] = { ...users[idx], ...updates };
-                    saveStoredUsers(users);
-                }
-
-                // TODO: Заменить на API запрос
+                // TODO: Добавить API endpoint для обновления профиля
                 // api.patch(`/users/${user.id}`, updates);
             },
         }),
@@ -214,7 +113,14 @@ export const useAuthStore = create<AuthStore>()(
             partialize: (state) => ({
                 user: state.user,
                 isAuthenticated: state.isAuthenticated,
+                token: state.token,
             }),
+            onRehydrateStorage: () => (state) => {
+                // После гидратации устанавливаем токен в API
+                if (state?.token) {
+                    api.setToken(state.token);
+                }
+            },
         }
     )
 );

@@ -1,7 +1,7 @@
 import { User, UserRole } from './index';
 
 export interface LoginCredentials {
-    username: string;
+    email: string;
     password: string;
 }
 
