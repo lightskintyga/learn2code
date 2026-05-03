@@ -79,6 +79,7 @@ const TeacherDashboard: React.FC = () => {
         completedTasks: 1247,
         averageProgress: courses.length > 0 ? 68 : 0,
     };
+    if (!user || (user.role !== 'teacher' && user.role !== 'admin')) return null;
 
     const displayActivity = mockActivity;
 
@@ -159,7 +160,9 @@ const TeacherDashboard: React.FC = () => {
                             <img src={closeTagIcon} alt="Logo" className="w-5 h-5" />
                         </div>
                         <span className="font-semibold text-[#1A1D2D]">Learn2Code</span>
-                        <span className="bg-amber-100 text-amber-700 text-xs px-2 py-0.5 rounded-full">Преподаватель</span>
+                        <span className="bg-amber-100 text-amber-700 text-xs px-2 py-0.5 rounded-full">
+                            {user.role === 'admin' ? 'Администратор' : 'Преподаватель'}
+                        </span>
                     </div>
                     <div className="flex items-center gap-4">
                         <button className="flex items-center gap-2 text-[#6B7280] hover:text-[#1A1D2D] transition-colors">
