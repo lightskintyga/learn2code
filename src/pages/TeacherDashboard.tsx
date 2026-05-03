@@ -434,6 +434,19 @@ const TeacherDashboard: React.FC = () => {
                 isLoading={isLoading}
             />
 
+            <ConfirmDeleteModal
+                isOpen={isDeleteCourseModalOpen}
+                onClose={() => {
+                    setIsDeleteCourseModalOpen(false);
+                    setDeletingCourse(null);
+                }}
+                onConfirm={handleConfirmDeleteCourse}
+                title="Удалить курс"
+                message="Вы уверены, что хотите удалить этот курс?"
+                itemName={deletingCourse?.title}
+                isLoading={isLoading}
+            />
+
             {/* Модалки групп только для админов */}
             {user?.role === 'admin' && (
                 <>
