@@ -144,15 +144,14 @@ const EditTaskPage: React.FC = () => {
     useEffect(() => {
         if (currentTask && !isNewTask) {
             setFormData({
-                title: currentTask.title,
-                description: currentTask.description,
+                title: currentTask.title || '',
+                description: currentTask.description || '',
                 hint: '', // TODO: Добавить в API
-                expectedOutput: currentTask.expectedOutput || '',
-                checkLevel: currentTask.checkLevel,
+                expectedOutput: currentTask.expectedStateJson || '',
+                checkLevel: 'State', // TODO: Получать из configJson
             });
-            if (currentTask.blockCategories) {
-                setSelectedCategories(currentTask.blockCategories);
-            }
+            // TODO: Получать категории из configJson
+            setSelectedCategories([]);
         }
         // Загружаем draft данные для нового задания с решением
         else if (isNewTask && solutionIdFromQuery) {
@@ -258,27 +257,28 @@ const EditTaskPage: React.FC = () => {
                 return;
             }
 
+            // Получаем Python код решения из localStorage
+            const pythonCode = localStorage.getItem(`task_solution_python_${solutionId}`) || '';
+            const solutionXml = localStorage.getItem(`task_solution_${solutionId}`) || '';
+
+            // Формируем данные для API в новом формате
             const taskData = {
                 title: formData.title,
                 description: formData.description,
                 order: 1,
                 lessonId: lessonId || '',
-                initialCode: '',
-                expectedOutput: formData.expectedOutput,
-                checkLevel: formData.checkLevel,
-                blockCategories: selectedCategories,
+                referenceCode: pythonCode, // Python код как эталонное решение
+                initialStateJson: '', // TODO: Добавить начальное состояние
+                expectedStateJson: formData.expectedOutput || '',
+                configJson: JSON.stringify({
+                    checkLevel: formData.checkLevel,
+                    blockCategories: selectedCategories,
+                }),
             };
-
-            // Получаем Python код решения из localStorage
-            const pythonCode = localStorage.getItem(`task_solution_python_${solutionId}`) || '';
-            const solutionXml = localStorage.getItem(`task_solution_${solutionId}`) || '';
 
             if (isNewTask) {
                 // Создаем задание на бэкенде с эталонным Python кодом
-                const task = await createTask({
-                    ...taskData,
-                    expectedOutput: pythonCode, // Сохраняем Python код как expectedOutput
-                });
+                const task = await createTask(taskData);
                 if (task) {
                     // Переносим решение на новый ID
                     if (solutionXml) {
@@ -293,10 +293,7 @@ const EditTaskPage: React.FC = () => {
                     navigate(`/teacher/course/${courseId}/lesson/${lessonId}/task/${task.id}/edit`);
                 }
             } else if (taskId) {
-                await updateTask(taskId, {
-                    ...taskData,
-                    expectedOutput: pythonCode,
-                });
+                await updateTask(taskId, taskData);
                 addToast('Изменения сохранены', 'success');
             }
         } catch {

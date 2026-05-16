@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { api, CourseDto, LessonDto, TaskDto, GroupDto, ProgressDto, CreateCourseRequest, UpdateCourseRequest, CreateLessonRequest, UpdateLessonRequest, CreateTaskRequest, UpdateTaskRequest, CreateGroupRequest } from '@/services/api';
+import { api, CourseDto, LessonDto, TaskDto, GroupDto, ProgressDto, CreateCourseRequest, UpdateCourseRequest, CreateLessonRequest, UpdateLessonRequest, CreateTaskRequest, UpdateTaskRequest, CreateGroupRequest, UpdateGroupRequest } from '@/services/api';
 
 interface CourseStore {
     // Состояние
@@ -46,12 +46,15 @@ interface CourseStore {
     fetchGroups: () => Promise<void>;
     fetchGroup: (id: string) => Promise<void>;
     createGroup: (data: CreateGroupRequest) => Promise<GroupDto | null>;
+    updateGroup: (id: string, data: UpdateGroupRequest) => Promise<GroupDto | null>;
+    deleteGroup: (id: string) => Promise<boolean>;
     addStudentToGroup: (groupId: string, studentId: string) => Promise<boolean>;
     removeStudentFromGroup: (groupId: string, studentId: string) => Promise<boolean>;
     setCurrentGroup: (group: GroupDto | null) => void;
 
     // Прогресс
-    fetchProgress: (studentId?: string) => Promise<void>;
+    fetchStudentProgress: (studentId: string) => Promise<void>;
+    fetchStudentTaskProgress: (studentId: string, taskId: string) => Promise<ProgressDto | null>;
 
     // Сброс состояния
     reset: () => void;
@@ -115,7 +118,9 @@ export const useCourseStore = create<CourseStore>((set, get) => ({
     updateCourse: async (id: string, data: UpdateCourseRequest) => {
         set({ isLoading: true, error: null });
         try {
-            const course = await api.updateCourse(id, data);
+            await api.updateCourse(id, data);
+            // Получаем обновленный курс
+            const course = await api.getCourse(id);
             set((state) => ({
                 courses: state.courses.map((c) => (c.id === id ? course : c)),
                 currentCourse: state.currentCourse?.id === id ? course : state.currentCourse,
@@ -190,7 +195,9 @@ export const useCourseStore = create<CourseStore>((set, get) => ({
     updateLesson: async (id: string, data: UpdateLessonRequest) => {
         set({ isLoading: true, error: null });
         try {
-            const lesson = await api.updateLesson(id, data);
+            await api.updateLesson(id, data);
+            // Получаем обновленный урок
+            const lesson = await api.getLesson(id);
             set((state) => ({
                 lessons: state.lessons.map((l) => (l.id === id ? lesson : l)),
                 currentLesson: state.currentLesson?.id === id ? lesson : state.currentLesson,
@@ -265,7 +272,9 @@ export const useCourseStore = create<CourseStore>((set, get) => ({
     updateTask: async (id: string, data: UpdateTaskRequest) => {
         set({ isLoading: true, error: null });
         try {
-            const task = await api.updateTask(id, data);
+            await api.updateTask(id, data);
+            // Получаем обновленное задание
+            const task = await api.getTask(id);
             set((state) => ({
                 tasks: state.tasks.map((t) => (t.id === id ? task : t)),
                 currentTask: state.currentTask?.id === id ? task : state.currentTask,
@@ -337,10 +346,44 @@ export const useCourseStore = create<CourseStore>((set, get) => ({
         }
     },
 
+    updateGroup: async (id: string, data: UpdateGroupRequest) => {
+        set({ isLoading: true, error: null });
+        try {
+            const group = await api.updateGroup(id, data);
+            set((state) => ({
+                groups: state.groups.map((g) => (g.id === id ? group : g)),
+                currentGroup: state.currentGroup?.id === id ? group : state.currentGroup,
+                isLoading: false,
+            }));
+            return group;
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Ошибка обновления группы';
+            set({ error: errorMessage, isLoading: false });
+            return null;
+        }
+    },
+
+    deleteGroup: async (id: string) => {
+        set({ isLoading: true, error: null });
+        try {
+            await api.deleteGroup(id);
+            set((state) => ({
+                groups: state.groups.filter((g) => g.id !== id),
+                currentGroup: state.currentGroup?.id === id ? null : state.currentGroup,
+                isLoading: false,
+            }));
+            return true;
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Ошибка удаления группы';
+            set({ error: errorMessage, isLoading: false });
+            return false;
+        }
+    },
+
     addStudentToGroup: async (groupId: string, studentId: string) => {
         set({ isLoading: true, error: null });
         try {
-            await api.addStudentToGroup(groupId, studentId);
+            await api.addStudentToGroup(groupId, { studentId });
             // Обновляем текущую группу если она загружена
             const { currentGroup } = get();
             if (currentGroup?.id === groupId) {
@@ -380,14 +423,27 @@ export const useCourseStore = create<CourseStore>((set, get) => ({
     setCurrentGroup: (group: GroupDto | null) => set({ currentGroup: group }),
 
     // ========== Прогресс ==========
-    fetchProgress: async (studentId?: string) => {
+    fetchStudentProgress: async (studentId: string) => {
         set({ isLoading: true, error: null });
         try {
-            const progress = await api.getProgress(studentId);
+            const progress = await api.getStudentProgress(studentId);
             set({ progress, isLoading: false });
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Ошибка загрузки прогресса';
             set({ error: errorMessage, isLoading: false });
+        }
+    },
+
+    fetchStudentTaskProgress: async (studentId: string, taskId: string) => {
+        set({ isLoading: true, error: null });
+        try {
+            const progress = await api.getStudentTaskProgress(studentId, taskId);
+            set({ isLoading: false });
+            return progress;
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Ошибка загрузки прогресса задания';
+            set({ error: errorMessage, isLoading: false });
+            return null;
         }
     },
 

@@ -64,7 +64,7 @@ const TeacherDashboard: React.FC = () => {
     // Подготавливаем курсы для отображения
     const displayCourses = courses.map(course => ({
         id: course.id,
-        title: course.title,
+        title: course.title || 'Без названия',
         status: 'published' as const,
         emoji: '📚',
         lessonsCount: 0,
@@ -302,13 +302,13 @@ const TeacherDashboard: React.FC = () => {
                                         key={course.id}
                                         className="bg-white rounded-[16px] p-4 flex items-center justify-between shadow-sm border border-[#EEF0F4]"
                                     >
-                                        <div className="flex items-center gap-4">
+                                                <div className="flex items-center gap-4">
                                             <div className="w-12 h-12 bg-[#F8FAFB] rounded-[12px] flex items-center justify-center text-2xl">
                                                 {course.emoji}
                                             </div>
                                             <div>
                                                 <div className="flex items-center gap-2 mb-1">
-                                                    <h3 className="font-semibold text-[#1A1D2D]">{course.title}</h3>
+                                                    <h3 className="font-semibold text-[#1A1D2D]">{course.title || 'Без названия'}</h3>
                                                     {getStatusBadge(course.status)}
                                                 </div>
                                                 <div className="flex items-center gap-3 text-sm text-[#6B7280]">
@@ -401,13 +401,13 @@ const TeacherDashboard: React.FC = () => {
                                                 key={group.id}
                                                 className="bg-white rounded-[16px] p-4 shadow-sm border border-[#EEF0F4]"
                                             >
-                                                <div className="flex items-start justify-between mb-2">
-                                                    <div>
-                                                        <h3 className="font-semibold text-[#1A1D2D]">{group.name}</h3>
-                                                        <p className="text-xs text-[#6B7280]">
-                                                            {course?.title || 'Курс не найден'}
-                                                        </p>
-                                                    </div>
+                                            <div className="flex items-start justify-between mb-2">
+                                                <div>
+                                                    <h3 className="font-semibold text-[#1A1D2D]">{group.name || 'Без названия'}</h3>
+                                                    <p className="text-xs text-[#6B7280]">
+                                                        {course?.title || 'Курс не найден'}
+                                                    </p>
+                                                </div>
                                                     <button
                                                         onClick={() => setManageGroupId(group.id)}
                                                         className="p-2 text-[#734DE6] hover:bg-[rgba(115,77,230,0.1)] rounded-[8px] transition-colors"
@@ -457,7 +457,7 @@ const TeacherDashboard: React.FC = () => {
                         isOpen={isCreateGroupModalOpen}
                         onClose={() => setIsCreateGroupModalOpen(false)}
                         onSubmit={handleCreateGroup}
-                        courses={courses.map(c => ({ id: c.id, title: c.title }))}
+                        courses={courses.map(c => ({ id: c.id, title: c.title || 'Без названия' }))}
                         isLoading={isLoading}
                     />
 

@@ -30,8 +30,8 @@ const EditLessonModal: React.FC<EditLessonModalProps> = ({
     useEffect(() => {
         if (initialData) {
             setFormData({
-                title: initialData.title,
-                description: initialData.description,
+                title: initialData.title || '',
+                description: initialData.description || '',
                 order: initialData.order,
             });
         }

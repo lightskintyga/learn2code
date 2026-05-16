@@ -158,8 +158,16 @@ const RecordSolutionPage: React.FC = () => {
     useEffect(() => {
         if (isDraftMode && draftData?.selectedCategories) {
             setSelectedCategories(draftData.selectedCategories);
-        } else if (currentTask?.blockCategories) {
-            setSelectedCategories(currentTask.blockCategories);
+        } else if (currentTask?.configJson) {
+            // Парсим configJson для получения категорий блоков
+            try {
+                const config = JSON.parse(currentTask.configJson);
+                if (config.blockCategories) {
+                    setSelectedCategories(config.blockCategories);
+                }
+            } catch (e) {
+                console.error('Failed to parse configJson:', e);
+            }
         }
     }, [currentTask, draftData, isDraftMode]);
 

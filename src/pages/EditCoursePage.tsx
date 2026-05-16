@@ -64,8 +64,8 @@ const EditCoursePage: React.FC = () => {
     useEffect(() => {
         if (currentCourse && !isNewCourse) {
             setFormData({
-                title: currentCourse.title,
-                description: currentCourse.description,
+                title: currentCourse.title || '',
+                description: currentCourse.description || '',
                 emoji: '📚', // TODO: Хранить в API
                 status: 'published', // TODO: Хранить в API
             });
@@ -346,7 +346,7 @@ const EditCoursePage: React.FC = () => {
                                                     <div className="w-8 h-8 bg-[rgba(115,77,230,0.1)] rounded-full flex items-center justify-center text-[#734DE6] font-semibold text-sm">
                                                         {lesson.order}
                                                     </div>
-                                                    <h3 className="font-semibold text-[#1A1D2D]">{lesson.title}</h3>
+                                                    <h3 className="font-semibold text-[#1A1D2D]">{lesson.title || 'Без названия'}</h3>
                                                 </div>
                                                 <div className="flex items-center gap-2">
                                                     <button
@@ -388,7 +388,7 @@ const EditCoursePage: React.FC = () => {
                                                             >
                                                                 <div className="flex items-center gap-3">
                                                                     <div className="w-2 h-2 rounded-full bg-[#E0E4EB]" />
-                                                                    <span className="text-sm text-[#1A1D2D]">{task.title}</span>
+                                                                    <span className="text-sm text-[#1A1D2D]">{task.title || 'Без названия'}</span>
                                                                 </div>
                                                                 <button
                                                                     onClick={() => handleEditTask(lesson.id, task.id)}
@@ -464,7 +464,7 @@ const EditCoursePage: React.FC = () => {
                 }}
                 onSubmit={handleEditLessonSubmit}
                 initialData={editingLesson ? {
-                    title: editingLesson.title,
+                    title: editingLesson.title || '',
                     description: editingLesson.description || '',
                     order: editingLesson.order,
                 } : null}
@@ -481,7 +481,7 @@ const EditCoursePage: React.FC = () => {
                 onConfirm={handleConfirmDeleteLesson}
                 title="Удалить урок"
                 message="Вы уверены, что хотите удалить этот урок?"
-                itemName={deletingLesson?.title}
+                itemName={deletingLesson?.title || 'Без названия'}
                 isLoading={isLoading}
             />
         </div>

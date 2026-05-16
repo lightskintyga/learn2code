@@ -6,7 +6,7 @@ import closeTagIcon from '../../public/closeTagIcon.svg';
 import { BookOpen, Users, Star, Clock, BookOpenCheck, Loader2 } from 'lucide-react';
 
 // Преобразуем данные API в формат для отображения
-const getCourseEmoji = (title: string): string => {
+const getCourseEmoji = (title: string | null): string => {
     const emojiMap: Record<string, string> = {
         'мои первые шаги': '🐱',
         'создаём игры': '🎮',
@@ -14,7 +14,7 @@ const getCourseEmoji = (title: string): string => {
         'музыка и звуки': '🎵',
         'продвинутые алгоритмы': '🧩',
     };
-    const lowerTitle = title.toLowerCase();
+    const lowerTitle = (title || '').toLowerCase();
     return emojiMap[lowerTitle] || '📚';
 };
 
@@ -39,38 +39,42 @@ const StudentDashboard: React.FC = () => {
         isLoading,
         error,
         fetchCourses,
-        fetchProgress,
+        fetchStudentProgress,
         clearError,
     } = useCourseStore();
 
     // Загружаем курсы и прогресс при монтировании
     useEffect(() => {
         fetchCourses();
-        fetchProgress();
-    }, [fetchCourses, fetchProgress]);
+        if (user?.id) {
+            fetchStudentProgress(user.id);
+        }
+    }, [fetchCourses, fetchStudentProgress, user?.id]);
 
     if (!user || user.role !== 'student') return null;
 
-    // Считаем статистику
+    // Считаем статистику (progress теперь на уровне задач)
+    const completedTasksCount = progress.filter(p => p.completed).length;
     const stats = {
-        coursesStarted: progress.filter(p => p.completedLessons > 0).length,
-        tasksCompleted: progress.reduce((sum, p) => sum + p.completedTasks, 0),
-        hoursLearned: Math.round(progress.reduce((sum, p) => sum + (p.completedTasks * 0.5), 0) * 10) / 10,
+        coursesStarted: courses.length > 0 ? 1 : 0, // TODO: Улучшить логику
+        tasksCompleted: completedTasksCount,
+        hoursLearned: Math.round(completedTasksCount * 0.5 * 10) / 10,
     };
 
     // Объединяем курсы с прогрессом
     const coursesWithProgress = courses.map((course, index) => {
-        const courseProgress = progress.find(p => p.courseId === course.id);
+        // Прогресс считаем по задачам курса (TODO: получать задачи для курса)
+        const courseTasksProgress = progress.length > 0 ? (completedTasksCount / progress.length) * 100 : 0;
         return {
             id: course.id,
-            title: course.title,
-            description: course.description,
+            title: course.title || 'Без названия',
+            description: course.description || '',
             emoji: getCourseEmoji(course.title),
             gradient: getCourseGradient(index),
-            lessonsCount: courseProgress?.totalLessons || 0,
-            studentsCount: 0, // TODO: получать из API если нужно
-            rating: 0, // TODO: получать из API если нужно
-            progress: courseProgress?.percentage || 0,
+            lessonsCount: 0, // TODO: получать из API
+            studentsCount: 0, // TODO: получать из API
+            rating: 0, // TODO: получать из API
+            progress: Math.round(courseTasksProgress),
         };
     });
 

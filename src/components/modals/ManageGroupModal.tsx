@@ -49,14 +49,14 @@ const ManageGroupModal: React.FC<ManageGroupModalProps> = ({
     };
 
     const filteredAvailable = availableStudents.filter(student =>
-        !group.students.find(s => s.id === student.id) &&
-        (student.displayName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-         student.email.toLowerCase().includes(searchQuery.toLowerCase()))
+        !group.students?.find(s => s.id === student.id) &&
+        ((student.displayName?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+         (student.email?.toLowerCase() || '').includes(searchQuery.toLowerCase()))
     );
 
-    const filteredCurrent = group.students.filter(student =>
-        student.displayName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        student.email.toLowerCase().includes(searchQuery.toLowerCase())
+    const filteredCurrent = (group.students || []).filter(student =>
+        (student.displayName?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+        (student.email?.toLowerCase() || '').includes(searchQuery.toLowerCase())
     );
 
     return (
@@ -76,8 +76,8 @@ const ManageGroupModal: React.FC<ManageGroupModalProps> = ({
                             <Users className="w-5 h-5 text-[#734DE6]" />
                         </div>
                         <div>
-                            <h2 className="text-lg font-bold text-[#1A1D2D]">{group.name}</h2>
-                            <p className="text-xs text-[#6B7280]">{group.students.length} учеников</p>
+                            <h2 className="text-lg font-bold text-[#1A1D2D]">{group.name || 'Без названия'}</h2>
+                            <p className="text-xs text-[#6B7280]">{(group.students || []).length} учеников</p>
                         </div>
                     </div>
                     <button
@@ -142,14 +142,14 @@ const ManageGroupModal: React.FC<ManageGroupModalProps> = ({
                                     >
                                         <div className="flex items-center gap-3">
                                             <div className="w-8 h-8 bg-[rgba(115,77,230,0.1)] rounded-full flex items-center justify-center text-[#734DE6] text-sm font-medium">
-                                                {student.displayName.charAt(0).toUpperCase()}
+                                                {(student.displayName || 'U').charAt(0).toUpperCase()}
                                             </div>
                                             <div>
                                                 <div className="text-sm font-medium text-[#1A1D2D]">
-                                                    {student.displayName}
+                                                    {student.displayName || 'Без имени'}
                                                 </div>
                                                 <div className="text-xs text-[#6B7280]">
-                                                    {student.email}
+                                                    {student.email || 'Нет email'}
                                                 </div>
                                             </div>
                                         </div>
@@ -182,14 +182,14 @@ const ManageGroupModal: React.FC<ManageGroupModalProps> = ({
                                     >
                                         <div className="flex items-center gap-3">
                                             <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-gray-600 text-sm font-medium">
-                                                {student.displayName.charAt(0).toUpperCase()}
+                                                {(student.displayName || 'U').charAt(0).toUpperCase()}
                                             </div>
                                             <div>
                                                 <div className="text-sm font-medium text-[#1A1D2D]">
-                                                    {student.displayName}
+                                                    {student.displayName || 'Без имени'}
                                                 </div>
                                                 <div className="text-xs text-[#6B7280]">
-                                                    {student.email}
+                                                    {student.email || 'Нет email'}
                                                 </div>
                                             </div>
                                         </div>

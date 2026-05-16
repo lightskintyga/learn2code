@@ -73,8 +73,8 @@ const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
     };
 
     const filteredStudents = availableStudents.filter(student =>
-        student.displayName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        student.email.toLowerCase().includes(searchQuery.toLowerCase())
+        (student.displayName?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+        (student.email?.toLowerCase() || '').includes(searchQuery.toLowerCase())
     );
 
     return (
@@ -119,7 +119,7 @@ const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
                             <option value="">Выберите курс</option>
                             {courses.map(course => (
                                 <option key={course.id} value={course.id}>
-                                    {course.title}
+                                    {course.title || 'Без названия'}
                                 </option>
                             ))}
                         </select>
@@ -199,10 +199,10 @@ const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
                                         />
                                         <div className="flex-1">
                                             <div className="text-sm font-medium text-[#1A1D2D]">
-                                                {student.displayName}
+                                                {student.displayName || 'Без имени'}
                                             </div>
                                             <div className="text-xs text-[#6B7280]">
-                                                {student.email}
+                                                {student.email || 'Нет email'}
                                             </div>
                                         </div>
                                     </label>

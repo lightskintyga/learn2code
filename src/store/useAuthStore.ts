@@ -9,10 +9,10 @@ import { api, UserDto } from '@/services/api';
 // Конвертер UserDto в User
 const convertUserDto = (userDto: UserDto): User => ({
     id: userDto.id,
-    username: userDto.email.split('@')[0],
-    email: userDto.email,
-    role: userDto.role.toLowerCase() as UserRole,
-    displayName: userDto.displayName,
+    username: userDto.email?.split('@')[0] || '',
+    email: userDto.email || '',
+    role: (userDto.role?.toLowerCase() || 'student') as UserRole,
+    displayName: userDto.displayName || '',
     createdAt: userDto.createdAt,
 });
 
@@ -28,6 +28,8 @@ interface AuthStore {
     clearError: () => void;
     updateProfile: (updates: Partial<User>) => void;
     initAuth: () => void;
+    loadCurrentUser: () => Promise<boolean>;
+    changePassword: (currentPassword: string, newPassword: string) => Promise<boolean>;
 }
 
 export const useAuthStore = create<AuthStore>()(
@@ -106,6 +108,40 @@ export const useAuthStore = create<AuthStore>()(
 
                 // TODO: Добавить API endpoint для обновления профиля
                 // api.patch(`/users/${user.id}`, updates);
+            },
+
+            loadCurrentUser: async () => {
+                const { token } = get();
+                if (!token) return false;
+
+                set({ isLoading: true, error: null });
+                try {
+                    api.setToken(token);
+                    const userDto = await api.getCurrentUser();
+                    const user = convertUserDto(userDto);
+                    set({ user, isAuthenticated: true, isLoading: false });
+                    return true;
+                } catch (error) {
+                    const errorMessage = error instanceof Error ? error.message : 'Ошибка загрузки пользователя';
+                    set({ error: errorMessage, isLoading: false });
+                    return false;
+                }
+            },
+
+            changePassword: async (currentPassword: string, newPassword: string) => {
+                set({ isLoading: true, error: null });
+                try {
+                    await api.changePassword({
+                        currentPassword,
+                        newPassword,
+                    });
+                    set({ isLoading: false });
+                    return true;
+                } catch (error) {
+                    const errorMessage = error instanceof Error ? error.message : 'Ошибка смены пароля';
+                    set({ error: errorMessage, isLoading: false });
+                    return false;
+                }
             },
         }),
         {

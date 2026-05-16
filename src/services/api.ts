@@ -1,4 +1,5 @@
 // API сервис для работы с Learn2Code Backend
+// Swagger спецификация: Learn2Code API v1
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
 
@@ -13,160 +14,199 @@ export interface ApiError {
     status: number;
 }
 
-// DTO типы для API
+// ============ DTO Типы из Swagger ============
+
+export interface UserDto {
+    id: string;
+    email: string | null;
+    displayName: string | null;
+    role: string | null;
+    createdAt: string;
+}
+
 export interface CourseDto {
     id: string;
-    title: string;
-    description: string;
+    title: string | null;
+    description: string | null;
     teacherId: string;
     createdAt: string;
 }
 
 export interface LessonDto {
     id: string;
-    title: string;
-    description: string;
+    title: string | null;
+    description: string | null;
     order: number;
     courseId: string;
 }
 
 export interface TaskDto {
     id: string;
-    title: string;
-    description: string;
+    title: string | null;
+    description: string | null;
     order: number;
     lessonId: string;
-    initialCode: string;
-    expectedOutput: string;
-    checkLevel: 'State' | 'Trace' | 'Ast';
-    blockCategories?: string[];
-    referenceProjectJson?: string;
+    referenceCode: string | null;
+    initialStateJson: string | null;
+    expectedStateJson: string | null;
+    configJson: string | null;
 }
 
 export interface GroupDto {
     id: string;
-    name: string;
+    name: string | null;
     description: string | null;
     courseId: string;
     teacherId: string;
     createdAt: string;
-    students: UserDto[];
+    students: UserDto[] | null;
 }
 
-export interface UserDto {
-    id: string;
-    email: string;
-    displayName: string;
-    role: 'Admin' | 'Teacher' | 'Student';
-    createdAt: string;
+export interface ProgressDto {
+    taskId: string;
+    taskTitle: string | null;
+    completed: boolean;
+    attemptsCount: number;
+    lastAttemptAt: string;
+}
+
+export interface BlockMapping {
+    blockId: string | null;
+    type: string | null;
+}
+
+export interface CodeIssueDto {
+    type: string | null;
+    message: string | null;
+    severity: string | null;
+    blockId: string | null;
+    line: number | null;
+}
+
+export interface CheckResultDto {
+    isPassed: boolean;
+    isOptimal: boolean;
+    hint: string | null;
+    issues: CodeIssueDto[] | null;
+    metrics: Record<string, number> | null;
 }
 
 export interface SubmissionDto {
     id: string;
     taskId: string;
-    studentId: string;
-    code: string;
-    status: 'Pending' | 'Running' | 'Completed' | 'Failed';
-    result: CheckResult | null;
-    createdAt: string;
+    studentId: string | null;
+    code: string | null;
+    language: string | null;
+    isPassed: boolean;
+    isOptimal: boolean;
+    submittedAt: string;
+    result: CheckResultDto;
 }
 
-export interface CheckResult {
-    isCorrect: boolean;
-    score: number;
-    message: string;
-    details: {
-        stateMatch: boolean;
-        traceMatch: boolean;
-        astMatch: boolean;
-        issues: Issue[];
-    };
+// ============ Request Типы из Swagger ============
+
+export interface LoginRequest {
+    email: string | null;
+    password: string | null;
 }
 
-export interface Issue {
-    type: 'SyntaxError' | 'RuntimeError' | 'LogicError' | 'StyleWarning';
-    severity: 'Low' | 'Medium' | 'High';
-    message: string;
-    line: number;
-    column: number;
+export interface LoginResponse {
+    token: string | null;
+    user: UserDto;
 }
 
-export interface ProgressDto {
-    courseId: string;
-    completedLessons: number;
-    totalLessons: number;
-    completedTasks: number;
-    totalTasks: number;
-    percentage: number;
+export interface MeResponse {
+    user: UserDto;
 }
 
-// Request типы
+export interface ChangePasswordRequest {
+    currentPassword: string | null;
+    newPassword: string | null;
+}
+
 export interface CreateCourseRequest {
-    title: string;
-    description: string;
+    title: string | null;
+    description: string | null;
 }
 
 export interface UpdateCourseRequest {
-    title: string;
-    description: string;
+    title: string | null;
+    description: string | null;
 }
 
 export interface CreateLessonRequest {
-    title: string;
-    description: string;
+    title: string | null;
+    description: string | null;
     order: number;
     courseId: string;
 }
 
 export interface UpdateLessonRequest {
-    title: string;
-    description: string;
-    order: number;
+    title: string | null;
+    description: string | null;
+    order: number | null;
 }
 
 export interface CreateTaskRequest {
-    title: string;
-    description: string;
+    title: string | null;
+    description: string | null;
+    referenceCode: string | null;
+    initialStateJson: string | null;
+    expectedStateJson: string | null;
+    configJson: string | null;
     order: number;
     lessonId: string;
-    initialCode: string;
-    expectedOutput: string;
-    checkLevel: 'State' | 'Trace' | 'Ast';
-    blockCategories?: string[];
-    referenceProjectJson?: string;
 }
 
 export interface UpdateTaskRequest {
-    title: string;
-    description: string;
-    order: number;
-    initialCode: string;
-    expectedOutput: string;
-    checkLevel: 'State' | 'Trace' | 'Ast';
-    blockCategories?: string[];
-    referenceProjectJson?: string;
+    title: string | null;
+    description: string | null;
+    referenceCode: string | null;
+    initialStateJson: string | null;
+    expectedStateJson: string | null;
+    configJson: string | null;
+    order: number | null;
 }
 
 export interface CreateGroupRequest {
-    name: string;
-    description: string;
+    name: string | null;
+    description: string | null;
     courseId: string;
     teacherId: string;
 }
 
-export interface CreateSubmissionRequest {
-    taskId: string;
-    code: string;
+export interface UpdateGroupRequest {
+    name: string | null;
+    description: string | null;
+    teacherId: string | null;
 }
 
-export interface LoginRequest {
-    email: string;
-    password: string;
+export interface AddStudentToGroupRequest {
+    studentId: string;
 }
 
-export interface LoginResponse {
-    token: string;
-    user: UserDto;
+export interface SubmitSolutionRequest {
+    language: string | null;
+    code: string | null;
+    blocklyXml: string | null;
+    blockMap: Record<string, BlockMapping> | null;
+}
+
+export interface CreateUserRequest {
+    email: string | null;
+    displayName: string | null;
+    password: string | null;
+    role: string | null;
+}
+
+export interface UpdateUserRequest {
+    email: string | null;
+    displayName: string | null;
+    role: string | null;
+}
+
+export interface ResetPasswordRequest {
+    newPassword: string | null;
 }
 
 class ApiService {
@@ -261,18 +301,24 @@ class ApiService {
         return this.handleResponse<T>(response);
     }
 
-    // ======= Auth API =======
+    // ============ Auth API ============
+
     async login(credentials: LoginRequest): Promise<LoginResponse> {
         const response = await this.post<LoginResponse>('/auth/login', credentials);
         return response.data;
     }
 
-    async getCurrentUser(): Promise<UserDto> {
-        const response = await this.get<UserDto>('/auth/me');
-        return response.data;
+    async changePassword(data: ChangePasswordRequest): Promise<void> {
+        await this.post('/auth/change-password', data);
     }
 
-    // ======= Courses API =======
+    async getCurrentUser(): Promise<UserDto> {
+        const response = await this.get<MeResponse>('/auth/me');
+        return response.data.user;
+    }
+
+    // ============ Courses API ============
+
     async getCourses(): Promise<CourseDto[]> {
         const response = await this.get<CourseDto[]>('/courses');
         return response.data;
@@ -288,69 +334,16 @@ class ApiService {
         return response.data;
     }
 
-    async updateCourse(id: string, data: UpdateCourseRequest): Promise<CourseDto> {
+    async updateCourse(id: string, data: UpdateCourseRequest): Promise<void> {
         await this.put(`/courses/${id}`, data);
-        // После PUT запроса получаем обновленный курс
-        return this.getCourse(id);
     }
 
     async deleteCourse(id: string): Promise<void> {
         await this.delete(`/courses/${id}`);
     }
 
-    // ======= Lessons API =======
-    async getLessons(courseId: string): Promise<LessonDto[]> {
-        const response = await this.get<LessonDto[]>(`/lessons?courseId=${courseId}`);
-        return response.data;
-    }
+    // ============ Groups API ============
 
-    async getLesson(id: string): Promise<LessonDto> {
-        const response = await this.get<LessonDto>(`/lessons/${id}`);
-        return response.data;
-    }
-
-    async createLesson(data: CreateLessonRequest): Promise<LessonDto> {
-        const response = await this.post<LessonDto>('/lessons', data);
-        return response.data;
-    }
-
-    async updateLesson(id: string, data: UpdateLessonRequest): Promise<LessonDto> {
-        await this.put(`/lessons/${id}`, data);
-        // После PUT запроса получаем обновленный урок
-        return this.getLesson(id);
-    }
-
-    async deleteLesson(id: string): Promise<void> {
-        await this.delete(`/lessons/${id}`);
-    }
-
-    // ======= Tasks API =======
-    async getTasks(lessonId: string): Promise<TaskDto[]> {
-        const response = await this.get<TaskDto[]>(`/tasks?lessonId=${lessonId}`);
-        return response.data;
-    }
-
-    async getTask(id: string): Promise<TaskDto> {
-        const response = await this.get<TaskDto>(`/tasks/${id}`);
-        return response.data;
-    }
-
-    async createTask(data: CreateTaskRequest): Promise<TaskDto> {
-        const response = await this.post<TaskDto>('/tasks', data);
-        return response.data;
-    }
-
-    async updateTask(id: string, data: UpdateTaskRequest): Promise<TaskDto> {
-        await this.put(`/tasks/${id}`, data);
-        // После PUT запроса получаем обновленное задание
-        return this.getTask(id);
-    }
-
-    async deleteTask(id: string): Promise<void> {
-        await this.delete(`/tasks/${id}`);
-    }
-
-    // ======= Groups API =======
     async getGroups(): Promise<GroupDto[]> {
         const response = await this.get<GroupDto[]>('/groups');
         return response.data;
@@ -366,8 +359,17 @@ class ApiService {
         return response.data;
     }
 
-    async addStudentToGroup(groupId: string, studentId: string): Promise<void> {
-        await this.post(`/groups/${groupId}/students`, { studentId });
+    async updateGroup(id: string, data: UpdateGroupRequest): Promise<GroupDto> {
+        const response = await this.put<GroupDto>(`/groups/${id}`, data);
+        return response.data;
+    }
+
+    async deleteGroup(id: string): Promise<void> {
+        await this.delete(`/groups/${id}`);
+    }
+
+    async addStudentToGroup(groupId: string, data: AddStudentToGroupRequest): Promise<void> {
+        await this.post(`/groups/${groupId}/students`, data);
     }
 
     async removeStudentFromGroup(groupId: string, studentId: string): Promise<void> {
@@ -379,38 +381,125 @@ class ApiService {
         return response.data;
     }
 
-    // ======= Submissions API =======
-    async createSubmission(data: CreateSubmissionRequest): Promise<SubmissionDto> {
-        const response = await this.post<SubmissionDto>('/submissions', data);
+    // ============ Lessons API ============
+
+    async getLessons(courseId?: string): Promise<LessonDto[]> {
+        let endpoint = '/lessons';
+        if (courseId) {
+            endpoint += `?courseId=${courseId}`;
+        }
+        const response = await this.get<LessonDto[]>(endpoint);
         return response.data;
     }
 
-    async getSubmissions(taskId?: string, studentId?: string): Promise<SubmissionDto[]> {
-        let endpoint = '/submissions';
-        const params: string[] = [];
-        if (taskId) params.push(`taskId=${taskId}`);
-        if (studentId) params.push(`studentId=${studentId}`);
-        if (params.length > 0) {
-            endpoint += `?${params.join('&')}`;
+    async getLesson(id: string): Promise<LessonDto> {
+        const response = await this.get<LessonDto>(`/lessons/${id}`);
+        return response.data;
+    }
+
+    async createLesson(data: CreateLessonRequest): Promise<LessonDto> {
+        const response = await this.post<LessonDto>('/lessons', data);
+        return response.data;
+    }
+
+    async updateLesson(id: string, data: UpdateLessonRequest): Promise<void> {
+        await this.put(`/lessons/${id}`, data);
+    }
+
+    async deleteLesson(id: string): Promise<void> {
+        await this.delete(`/lessons/${id}`);
+    }
+
+    // ============ Tasks API (пути с заглавной буквы) ============
+
+    async getTasks(lessonId?: string): Promise<TaskDto[]> {
+        let endpoint = '/Tasks';
+        if (lessonId) {
+            endpoint += `?lessonId=${lessonId}`;
+        }
+        const response = await this.get<TaskDto[]>(endpoint);
+        return response.data;
+    }
+
+    async getTask(id: string): Promise<TaskDto> {
+        const response = await this.get<TaskDto>(`/Tasks/${id}`);
+        return response.data;
+    }
+
+    async createTask(data: CreateTaskRequest): Promise<TaskDto> {
+        const response = await this.post<TaskDto>('/Tasks', data);
+        return response.data;
+    }
+
+    async updateTask(id: string, data: UpdateTaskRequest): Promise<void> {
+        await this.put(`/Tasks/${id}`, data);
+    }
+
+    async deleteTask(id: string): Promise<void> {
+        await this.delete(`/Tasks/${id}`);
+    }
+
+    // ============ Progress API (пути с заглавной буквы) ============
+
+    async getStudentProgress(studentId: string): Promise<ProgressDto[]> {
+        const response = await this.get<ProgressDto[]>(`/Progress/${studentId}`);
+        return response.data;
+    }
+
+    async getStudentTaskProgress(studentId: string, taskId: string): Promise<ProgressDto> {
+        const response = await this.get<ProgressDto>(`/Progress/${studentId}/tasks/${taskId}`);
+        return response.data;
+    }
+
+    // ============ Submissions API ============
+
+    async createTaskSubmission(taskId: string, data: SubmitSolutionRequest): Promise<SubmissionDto> {
+        const response = await this.post<SubmissionDto>(`/tasks/${taskId}/Submissions`, data);
+        return response.data;
+    }
+
+    async getTaskSubmissions(taskId: string, studentId?: string): Promise<SubmissionDto[]> {
+        let endpoint = `/tasks/${taskId}/Submissions`;
+        if (studentId) {
+            endpoint += `?studentId=${studentId}`;
         }
         const response = await this.get<SubmissionDto[]>(endpoint);
         return response.data;
     }
 
-    // ======= Progress API =======
-    async getProgress(studentId?: string): Promise<ProgressDto[]> {
-        let endpoint = '/progress';
-        if (studentId) {
-            endpoint += `?studentId=${studentId}`;
-        }
-        const response = await this.get<ProgressDto[]>(endpoint);
+    async getSubmissionById(taskId: string, submissionId: string): Promise<SubmissionDto> {
+        const response = await this.get<SubmissionDto>(`/tasks/${taskId}/Submissions/${submissionId}`);
         return response.data;
     }
 
-    // ======= Users API =======
+    // ============ Users API (пути с заглавной буквы) ============
+
     async getUsers(): Promise<UserDto[]> {
-        const response = await this.get<UserDto[]>('/users');
+        const response = await this.get<UserDto[]>('/Users');
         return response.data;
+    }
+
+    async getUser(id: string): Promise<UserDto> {
+        const response = await this.get<UserDto>(`/Users/${id}`);
+        return response.data;
+    }
+
+    async createUser(data: CreateUserRequest): Promise<UserDto> {
+        const response = await this.post<UserDto>('/Users', data);
+        return response.data;
+    }
+
+    async updateUser(id: string, data: UpdateUserRequest): Promise<UserDto> {
+        const response = await this.put<UserDto>(`/Users/${id}`, data);
+        return response.data;
+    }
+
+    async deleteUser(id: string): Promise<void> {
+        await this.delete(`/Users/${id}`);
+    }
+
+    async resetPassword(id: string, data: ResetPasswordRequest): Promise<void> {
+        await this.post(`/Users/${id}/reset-password`, data);
     }
 }
 

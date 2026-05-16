@@ -8,8 +8,10 @@ import { TaskDto } from '@/services/api';
 // Расширенный тип урока с задачами
 interface LessonWithTasks {
     id: string;
-    title: string;
+    title: string | null;
+    description: string | null;
     order: number;
+    courseId: string;
     tasks: TaskDto[];
     status: 'completed' | 'in-progress' | 'available' | 'locked';
 }
@@ -25,13 +27,12 @@ const CoursePage: React.FC = () => {
         currentCourse,
         lessons,
         tasks,
-        progress,
         isLoading,
         error,
         fetchCourse,
         fetchLessons,
         fetchTasks,
-        fetchProgress,
+        fetchStudentProgress,
         clearError,
     } = useCourseStore();
 
@@ -40,9 +41,11 @@ const CoursePage: React.FC = () => {
         if (courseId) {
             fetchCourse(courseId);
             fetchLessons(courseId);
-            fetchProgress();
+            if (user?.id) {
+                fetchStudentProgress(user.id);
+            }
         }
-    }, [courseId, fetchCourse, fetchLessons, fetchProgress]);
+    }, [courseId, fetchCourse, fetchLessons, fetchStudentProgress, user?.id]);
 
     // Загружаем задачи при раскрытии урока
     useEffect(() => {
@@ -53,9 +56,8 @@ const CoursePage: React.FC = () => {
 
     if (!user || user.role !== 'student') return null;
 
-    // Считаем прогресс курса
-    const courseProgress = progress.find(p => p.courseId === courseId);
-    const progressPercentage = courseProgress?.percentage || 0;
+    // TODO: Получать прогресс курса из API
+    const progressPercentage = 0;
 
     // Определяем статус урока
     const getLessonStatus = (index: number): LessonWithTasks['status'] => {
@@ -230,7 +232,7 @@ const CoursePage: React.FC = () => {
                                     <div className="flex-1">
                                         <div className="flex items-center gap-3">
                                             <h3 className={`font-semibold ${lesson.status === 'locked' ? 'text-gray-400' : 'text-[#1A1D2D]'}`}>
-                                                {lesson.order}. {lesson.title}
+                                                {lesson.order}. {lesson.title || 'Без названия'}
                                             </h3>
                                             {lesson.status === 'in-progress' && (
                                                 <span className="bg-[rgba(115,77,230,0.1)] text-[#734DE6] text-xs px-2 py-0.5 rounded-full">
@@ -278,7 +280,7 @@ const CoursePage: React.FC = () => {
                                                         <div className="w-6 h-6 bg-[rgba(115,77,230,0.1)] rounded-full flex items-center justify-center text-[#734DE6] text-xs font-medium">
                                                             {index + 1}
                                                         </div>
-                                                        <span className="text-sm font-medium text-[#1A1D2D]">{task.title}</span>
+                                                        <span className="text-sm font-medium text-[#1A1D2D]">{task.title || 'Без названия'}</span>
                                                     </div>
                                                     <button className="px-3 py-1.5 bg-[#734DE6] text-white text-xs font-medium rounded-[8px] hover:bg-[#5a3eb8] transition-colors">
                                                         Начать
