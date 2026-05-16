@@ -11,6 +11,7 @@ import { Loader2, ChevronLeft, Square, Save, AlertCircle, CheckCircle } from 'lu
 import { toolboxConfig } from '@/blockly/toolbox';
 import { ScratchTheme } from '@/blockly/theme';
 import { loadWorkspaceFromXml, getWorkspaceXml } from '@/blockly/setup';
+import '@/blockly/generators/python'; // Регистрируем Python генераторы
 import StageCanvas from '@/components/stage/StageCanvas';
 import SpriteList from '@/components/sprites/SpriteList';
 import SpriteInfo from '@/components/sprites/SpriteInfo';

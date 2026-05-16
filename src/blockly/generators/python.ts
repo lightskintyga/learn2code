@@ -105,6 +105,31 @@ ${code}
 `;
 };
 
+pythonGenerator.forBlock['event_whenkeypressed'] = function (block: Blockly.Block) {
+    const key = block.getFieldValue('KEY_OPTION') || 'space';
+    const code = pythonGenerator.statementToCode(block, 'STACK') || '  pass\n';
+    return `@when_key_pressed("${key}")
+async def on_key_pressed_${key}():
+${code}
+`;
+};
+
+pythonGenerator.forBlock['event_whenthisspriteclicked'] = function (block: Blockly.Block) {
+    const code = pythonGenerator.statementToCode(block, 'STACK') || '  pass\n';
+    return `@when_this_sprite_clicked
+async def on_sprite_clicked():
+${code}
+`;
+};
+
+pythonGenerator.forBlock['event_whenstageclicked'] = function (block: Blockly.Block) {
+    const code = pythonGenerator.statementToCode(block, 'STACK') || '  pass\n';
+    return `@when_stage_clicked
+async def on_stage_clicked():
+${code}
+`;
+};
+
 // Внешний вид (Looks)
 pythonGenerator.forBlock['looks_say'] = function (block: Blockly.Block) {
     const message = pythonGenerator.valueToCode(block, 'MESSAGE', Order.ATOMIC) || "''";

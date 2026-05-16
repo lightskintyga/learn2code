@@ -8,10 +8,80 @@ import { useEditorStore } from '@/store/useEditorStore';
 import { runtime } from '@/engine/Runtime';
 import { Loader2, ChevronLeft, Play, Save, AlertCircle, CheckCircle, FlaskConical, Square } from 'lucide-react';
 import { toolboxConfig } from '@/blockly/toolbox';
+import { ScratchTheme } from '@/blockly/theme';
 import StageCanvas from '@/components/stage/StageCanvas';
 import SpriteList from '@/components/sprites/SpriteList';
 import SpriteInfo from '@/components/sprites/SpriteInfo';
 import BackdropSelector from '@/components/sprites/BackdropSelector';
+
+// Компонент для отображения превью решения
+interface SolutionPreviewProps {
+    solutionId: string;
+    selectedCategories: string[];
+}
+
+const SolutionPreview: React.FC<SolutionPreviewProps> = ({ solutionId, selectedCategories }) => {
+    const blocklyRef = useRef<HTMLDivElement>(null);
+    const workspaceRef = useRef<Blockly.WorkspaceSvg | null>(null);
+    const hasInitializedRef = useRef(false);
+
+    useEffect(() => {
+        if (!blocklyRef.current || hasInitializedRef.current || !solutionId) return;
+
+        // Получаем XML решения
+        const solutionXml = localStorage.getItem(`task_solution_${solutionId}`);
+        if (!solutionXml) return;
+
+        // Создаем read-only workspace
+        workspaceRef.current = Blockly.inject(blocklyRef.current, {
+            readOnly: true,
+            theme: ScratchTheme,
+            renderer: 'zelos',
+            scrollbars: true,
+            zoom: {
+                controls: true,
+                wheel: true,
+                startScale: 0.675,
+            },
+            grid: {
+                spacing: 40,
+                length: 2,
+                colour: '#DDD',
+            },
+        });
+
+        // Загружаем блоки
+        try {
+            const parser = new DOMParser();
+            const xml = parser.parseFromString(solutionXml, 'text/xml');
+            Blockly.Xml.domToWorkspace(xml.documentElement, workspaceRef.current);
+        } catch (e) {
+            console.error('Failed to load solution for preview:', e);
+        }
+
+        hasInitializedRef.current = true;
+
+        return () => {
+            workspaceRef.current?.dispose();
+            workspaceRef.current = null;
+            hasInitializedRef.current = false;
+        };
+    }, [solutionId]);
+
+    if (!solutionId) {
+        return (
+            <div className="w-full h-full flex items-center justify-center">
+                <p className="text-[#6B7280]">Нет данных решения</p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="w-full h-full">
+            <div ref={blocklyRef} className="w-full h-full" />
+        </div>
+    );
+};
 
 // Категории блоков для выбора
 const blockCategories = [
@@ -516,36 +586,10 @@ const EditTaskPage: React.FC = () => {
                                         </div>
                                     </div>
                                 ) : (
-                                    <div className="w-full h-full p-4">
-                                        <p className="text-sm text-[#6B7280] mb-4">
-                                            Блоки эталонного решения будут доступны ученику как последовательность.
-                                        </p>
-                                        <div className="space-y-2">
-                                            <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-[8px]">
-                                                <div className="w-8 h-8 bg-amber-500 rounded flex items-center justify-center text-white text-xs font-bold">
-                                                    ⚑
-                                                </div>
-                                                <span className="text-sm text-[#1A1D2D]">Когда зелёный флаг нажат</span>
-                                            </div>
-                                            <div className="pl-4 border-l-2 border-gray-200 space-y-2">
-                                                <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-[8px]">
-                                                    <div className="w-8 h-8 bg-blue-500 rounded flex items-center justify-center text-white text-xs font-bold">
-                                                        →
-                                                    </div>
-                                                    <span className="text-sm text-[#1A1D2D]">Идти 10 шагов</span>
-                                                </div>
-                                                <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-[8px]">
-                                                    <div className="w-8 h-8 bg-blue-500 rounded flex items-center justify-center text-white text-xs font-bold">
-                                                        ↻
-                                                    </div>
-                                                    <span className="text-sm text-[#1A1D2D]">Повернуть на 15 градусов</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <p className="text-xs text-[#9CA3AF] mt-4">
-                                            * Полная структура блоков будет доступна после записи решения
-                                        </p>
-                                    </div>
+                                    <SolutionPreview 
+                                        solutionId={isNewTask ? (solutionIdFromQuery || '') : (taskId || '')}
+                                        selectedCategories={selectedCategories}
+                                    />
                                 )}
                             </div>
                         </div>
@@ -610,7 +654,7 @@ const EditTaskPage: React.FC = () => {
                                     {/* Sprites */}
                                     <div className="mt-4 border-t border-[#EEF0F4] pt-4">
                                         <h4 className="text-xs font-semibold text-[#6B7280] uppercase mb-2">Спрайты</h4>
-                                        <SpriteList />
+                                        <SpriteList readOnly />
                                     </div>
                                 </>
                             )}
