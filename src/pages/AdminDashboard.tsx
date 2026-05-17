@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import AdminLayout from '@/components/layout/AdminLayout';
+import { useAdminStore } from '@/store/useAdminStore';
+import { useCourseStore } from '@/store/useCourseStore';
 import {
     Layers,
     Users,
@@ -10,15 +12,8 @@ import {
     UserPlus,
     ChevronRight,
     TrendingUp,
+    Loader2,
 } from 'lucide-react';
-
-// Моковые данные (в реальности будут приходить с бэкенда)
-const stats = [
-    { label: 'Группы', value: '12', icon: Layers, wrapClass: 'bg-[rgba(115,77,230,0.1)] text-[#734DE6]', to: '/admin/groups' },
-    { label: 'Учеников', value: '248', icon: Users, wrapClass: 'bg-blue-50 text-blue-600', to: '/admin/students' },
-    { label: 'Преподавателей', value: '8', icon: GraduationCap, wrapClass: 'bg-amber-50 text-amber-700', to: '/admin/teachers' },
-    { label: 'Курсов', value: '15', icon: BookOpen, wrapClass: 'bg-emerald-50 text-emerald-700', to: '/admin/courses' },
-];
 
 const quickActions = [
     {
@@ -44,19 +39,138 @@ const quickActions = [
     },
 ];
 
-const recent = [
-    { text: 'Создана группа «Питон-Кадеты-3»', time: '10 мин назад', emoji: '📚' },
-    { text: 'Зарегистрировано 12 учеников', time: '1 ч назад', emoji: '👥' },
-    { text: 'Преподаватель Иванов И.И. привязан к группе «Робо-1»', time: '3 ч назад', emoji: '👨‍🏫' },
-    { text: 'Курс «Создаём игры» привязан к группе «Геймеры-7А»', time: 'вчера', emoji: '🎮' },
-];
+const isRole = (role: string | null, expected: 'student' | 'teacher' | 'admin') =>
+    role?.toLowerCase() === expected;
+
+const getDisplayName = (displayName: string | null, email: string | null) =>
+    displayName || email || 'Без имени';
+
+const formatDateTime = (value: string) => {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return 'недавно';
+
+    return new Intl.DateTimeFormat('ru-RU', {
+        day: '2-digit',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit',
+    }).format(date);
+};
 
 const AdminDashboard: React.FC = () => {
+    const {
+        courses,
+        groups,
+        isLoading: isCourseLoading,
+        error: courseError,
+        fetchCourses,
+        fetchGroups,
+        clearError: clearCourseError,
+    } = useCourseStore();
+    const {
+        users,
+        isLoading: isUsersLoading,
+        error: usersError,
+        fetchUsers,
+        clearError: clearUsersError,
+    } = useAdminStore();
+
+    useEffect(() => {
+        fetchCourses();
+        fetchGroups();
+        fetchUsers();
+    }, [fetchCourses, fetchGroups, fetchUsers]);
+
+    const studentsCount = users.filter((user) => isRole(user.role, 'student')).length;
+    const teachersCount = users.filter((user) => isRole(user.role, 'teacher')).length;
+
+    const stats = [
+        {
+            label: 'Группы',
+            value: groups.length.toString(),
+            icon: Layers,
+            wrapClass: 'bg-[rgba(115,77,230,0.1)] text-[#734DE6]',
+            to: '/admin/groups',
+        },
+        {
+            label: 'Учеников',
+            value: studentsCount.toString(),
+            icon: Users,
+            wrapClass: 'bg-blue-50 text-blue-600',
+            to: '/admin/students',
+        },
+        {
+            label: 'Преподавателей',
+            value: teachersCount.toString(),
+            icon: GraduationCap,
+            wrapClass: 'bg-amber-50 text-amber-700',
+            to: '/admin/teachers',
+        },
+        {
+            label: 'Курсов',
+            value: courses.length.toString(),
+            icon: BookOpen,
+            wrapClass: 'bg-emerald-50 text-emerald-700',
+            to: '/admin/courses',
+        },
+    ];
+
+    const recent = [
+        ...groups.map((group) => ({
+            id: `group-${group.id}`,
+            text: `Создана группа «${group.name || 'Без названия'}»`,
+            time: group.createdAt,
+            icon: Layers,
+        })),
+        ...courses.map((course) => ({
+            id: `course-${course.id}`,
+            text: `Создан курс «${course.title || 'Без названия'}»`,
+            time: course.createdAt,
+            icon: BookOpen,
+        })),
+        ...users.map((user) => ({
+            id: `user-${user.id}`,
+            text: `Добавлен пользователь ${getDisplayName(user.displayName, user.email)}`,
+            time: user.createdAt,
+            icon: Users,
+        })),
+    ]
+        .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
+        .slice(0, 5);
+
+    const error = courseError || usersError;
+    const isInitialLoading =
+        (isCourseLoading && courses.length === 0 && groups.length === 0) ||
+        (isUsersLoading && users.length === 0);
+
     return (
         <AdminLayout
             title="Админ-панель 🛡️"
             description="Управляйте группами, пользователями и курсами"
         >
+            {error && (
+                <div className="bg-red-50 border border-red-200 rounded-[12px] p-4 flex items-center justify-between gap-3">
+                    <span className="text-red-600 text-sm">{error}</span>
+                    <button
+                        onClick={() => {
+                            clearCourseError();
+                            clearUsersError();
+                        }}
+                        className="text-red-600 hover:text-red-700 text-sm font-medium"
+                        type="button"
+                    >
+                        Закрыть
+                    </button>
+                </div>
+            )}
+
+            {isInitialLoading && (
+                <div className="flex items-center gap-3 text-[#6B7280] bg-white rounded-[16px] border border-[#EEF0F4] p-4">
+                    <Loader2 className="w-5 h-5 animate-spin text-[#734DE6]" />
+                    <span className="text-sm">Загрузка данных админ-панели...</span>
+                </div>
+            )}
+
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 {stats.map((s) => (
                     <Link key={s.label} to={s.to} className="group">
@@ -103,13 +217,21 @@ const AdminDashboard: React.FC = () => {
                     </button>
                 </div>
                 <div className="bg-white rounded-[16px] shadow-sm border border-[#EEF0F4] divide-y divide-[#EEF0F4]">
-                    {recent.map((r, i) => (
-                        <div key={i} className="flex items-center gap-4 p-4">
-                            <span className="text-xl shrink-0">{r.emoji}</span>
-                            <p className="flex-1 text-sm text-[#1A1D2D]">{r.text}</p>
-                            <span className="text-xs text-[#6B7280] shrink-0">{r.time}</span>
+                    {recent.length === 0 ? (
+                        <div className="p-6 text-sm text-[#6B7280] text-center">
+                            Пока нет данных для отображения
                         </div>
-                    ))}
+                    ) : (
+                        recent.map((r) => (
+                            <div key={r.id} className="flex items-center gap-4 p-4">
+                                <div className="w-9 h-9 rounded-[10px] bg-[#F8FAFB] border border-[#EEF0F4] text-[#734DE6] flex items-center justify-center shrink-0">
+                                    <r.icon className="w-4 h-4" />
+                                </div>
+                                <p className="flex-1 text-sm text-[#1A1D2D]">{r.text}</p>
+                                <span className="text-xs text-[#6B7280] shrink-0">{formatDateTime(r.time)}</span>
+                            </div>
+                        ))
+                    )}
                 </div>
             </section>
         </AdminLayout>

@@ -1,21 +1,108 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import AdminLayout from '@/components/layout/AdminLayout';
-import { Plus, Search, Upload, MoreVertical } from 'lucide-react';
-
-// Моковые данные (в реальности будут приходить с бэкенда)
-const mockStudents = [
-    { id: '1', name: 'Артём Кузнецов', login: 'a.kuznetsov', group: 'Питон-Кадеты-3', progress: 78, status: 'active' as const },
-    { id: '2', name: 'Мария Демидова', login: 'm.demidova', group: 'Питон-Кадеты-3', progress: 92, status: 'active' as const },
-    { id: '3', name: 'Дмитрий Лебедев', login: 'd.lebedev', group: 'Робо-1', progress: 45, status: 'active' as const },
-    { id: '4', name: 'Анна Соколова', login: 'a.sokolova', group: 'Геймеры-7А', progress: 100, status: 'active' as const },
-    { id: '5', name: 'Илья Морозов', login: 'i.morozov', group: '—', progress: 0, status: 'pending' as const },
-];
+import { api } from '@/services/api';
+import { useAdminStore } from '@/store/useAdminStore';
+import { useCourseStore } from '@/store/useCourseStore';
+import { Plus, Search, Upload, MoreVertical, Loader2 } from 'lucide-react';
 
 const searchInputClass =
     'w-full border border-[#EEF0F4] rounded-[12px] h-11 pl-9 pr-3 text-[#1A1D2D] placeholder:text-[#9CA3AF] bg-white focus:outline-none focus:ring-2 focus:ring-[#734DE6]/25';
 
 const AdminStudents: React.FC = () => {
+    const [query, setQuery] = useState('');
+    const [progressByStudent, setProgressByStudent] = useState<Record<string, number | null>>({});
+    const [isProgressLoading, setIsProgressLoading] = useState(false);
+    const {
+        users,
+        isLoading: isUsersLoading,
+        error: usersError,
+        fetchUsers,
+        clearError: clearUsersError,
+    } = useAdminStore();
+    const {
+        groups,
+        isLoading: isGroupsLoading,
+        error: groupsError,
+        fetchGroups,
+        clearError: clearGroupsError,
+    } = useCourseStore();
+
+    useEffect(() => {
+        fetchUsers();
+        fetchGroups();
+    }, [fetchUsers, fetchGroups]);
+
+    const students = useMemo(
+        () => users.filter((user) => user.role?.toLowerCase() === 'student'),
+        [users]
+    );
+
+    useEffect(() => {
+        if (students.length === 0) {
+            setProgressByStudent({});
+            return;
+        }
+
+        let isMounted = true;
+        setIsProgressLoading(true);
+
+        Promise.all(
+            students.map(async (student) => {
+                try {
+                    const progress = await api.getStudentProgress(student.id);
+                    if (progress.length === 0) {
+                        return [student.id, null] as const;
+                    }
+
+                    const completed = progress.filter((item) => item.completed).length;
+                    return [student.id, Math.round((completed / progress.length) * 100)] as const;
+                } catch {
+                    return [student.id, null] as const;
+                }
+            })
+        ).then((entries) => {
+            if (isMounted) {
+                setProgressByStudent(Object.fromEntries(entries));
+                setIsProgressLoading(false);
+            }
+        });
+
+        return () => {
+            isMounted = false;
+        };
+    }, [students]);
+
+    const preparedStudents = students
+        .map((student) => {
+            const studentGroups = groups.filter((group) =>
+                group.students?.some((groupStudent) => groupStudent.id === student.id)
+            );
+            const name = student.displayName || student.email || 'Без имени';
+            const login = student.email?.split('@')[0] || student.id.slice(0, 8);
+
+            return {
+                id: student.id,
+                name,
+                login,
+                email: student.email || '',
+                groups: studentGroups.map((group) => group.name || 'Без названия'),
+                progress: progressByStudent[student.id] ?? null,
+            };
+        })
+        .filter((student) => {
+            const normalizedQuery = query.trim().toLowerCase();
+            if (!normalizedQuery) return true;
+            return `${student.name} ${student.login} ${student.email} ${student.groups.join(' ')}`
+                .toLowerCase()
+                .includes(normalizedQuery);
+        });
+
+    const error = usersError || groupsError;
+    const isInitialLoading =
+        (isUsersLoading && users.length === 0) ||
+        (isGroupsLoading && groups.length === 0);
+
     return (
         <AdminLayout
             title="Ученики"
@@ -37,12 +124,41 @@ const AdminStudents: React.FC = () => {
                 </>
             }
         >
+            {error && (
+                <div className="bg-red-50 border border-red-200 rounded-[12px] p-4 flex items-center justify-between gap-3">
+                    <span className="text-red-600 text-sm">{error}</span>
+                    <button
+                        onClick={() => {
+                            clearUsersError();
+                            clearGroupsError();
+                        }}
+                        className="text-red-600 hover:text-red-700 text-sm font-medium"
+                        type="button"
+                    >
+                        Закрыть
+                    </button>
+                </div>
+            )}
+
             <div className="flex gap-3 flex-wrap">
                 <div className="relative flex-1 min-w-[240px]">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9CA3AF]" />
-                    <input type="search" placeholder="Поиск по имени или логину..." className={searchInputClass} />
+                    <input
+                        type="search"
+                        placeholder="Поиск по имени или логину..."
+                        className={searchInputClass}
+                        value={query}
+                        onChange={(event) => setQuery(event.target.value)}
+                    />
                 </div>
             </div>
+
+            {isInitialLoading && (
+                <div className="flex flex-col items-center justify-center py-12 bg-white rounded-[16px] border border-[#EEF0F4]">
+                    <Loader2 className="w-7 h-7 text-[#734DE6] animate-spin mb-3" />
+                    <p className="text-sm text-[#6B7280]">Загрузка учеников...</p>
+                </div>
+            )}
 
             <div className="bg-white rounded-[16px] shadow-sm border border-[#EEF0F4] overflow-hidden">
                 <div className="overflow-x-auto">
@@ -58,7 +174,14 @@ const AdminStudents: React.FC = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {mockStudents.map((s) => (
+                            {!isInitialLoading && preparedStudents.length === 0 && (
+                                <tr>
+                                    <td className="p-8 text-center text-[#6B7280]" colSpan={6}>
+                                        {query ? 'Ученики не найдены' : 'Пока нет учеников'}
+                                    </td>
+                                </tr>
+                            )}
+                            {preparedStudents.map((s) => (
                                 <tr key={s.id} className="border-b border-[#EEF0F4]/80 hover:bg-[#F8FAFB]/80">
                                     <td className="p-4">
                                         <div className="flex items-center gap-3">
@@ -73,34 +196,34 @@ const AdminStudents: React.FC = () => {
                                     </td>
                                     <td className="p-4 text-[#6B7280] font-mono text-sm">@{s.login}</td>
                                     <td className="p-4">
-                                        {s.group === '—' ? (
+                                        {s.groups.length === 0 ? (
                                             <span className="text-xs font-semibold px-2 py-0.5 rounded-lg bg-gray-100 text-[#6B7280]">
                                                 не назначена
                                             </span>
                                         ) : (
-                                            <span className="font-semibold text-[#1A1D2D]">{s.group}</span>
+                                            <span className="font-semibold text-[#1A1D2D]">{s.groups.join(', ')}</span>
                                         )}
                                     </td>
                                     <td className="p-4">
-                                        <div className="flex items-center gap-2 max-w-[160px]">
-                                            <div className="flex-1 h-2 bg-[#EEF0F4] rounded-full overflow-hidden">
-                                                <div
-                                                    className="h-full bg-[#734DE6] rounded-full"
-                                                    style={{ width: `${s.progress}%` }}
-                                                />
+                                        {isProgressLoading && s.progress === null ? (
+                                            <span className="text-xs text-[#6B7280]">загрузка...</span>
+                                        ) : s.progress === null ? (
+                                            <span className="text-xs text-[#6B7280]">нет данных</span>
+                                        ) : (
+                                            <div className="flex items-center gap-2 max-w-[160px]">
+                                                <div className="flex-1 h-2 bg-[#EEF0F4] rounded-full overflow-hidden">
+                                                    <div
+                                                        className="h-full bg-[#734DE6] rounded-full"
+                                                        style={{ width: `${s.progress}%` }}
+                                                    />
+                                                </div>
+                                                <span className="text-xs font-bold text-[#6B7280] w-9">{s.progress}%</span>
                                             </div>
-                                            <span className="text-xs font-bold text-[#6B7280] w-9">{s.progress}%</span>
-                                        </div>
+                                        )}
                                     </td>
                                     <td className="p-4">
-                                        <span
-                                            className={`text-xs font-bold px-2 py-0.5 rounded-lg ${
-                                                s.status === 'active'
-                                                    ? 'bg-emerald-50 text-emerald-800'
-                                                    : 'bg-amber-50 text-amber-800'
-                                            }`}
-                                        >
-                                            {s.status === 'active' ? 'Активен' : 'Ожидает'}
+                                        <span className="text-xs font-bold px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-800">
+                                            Создан
                                         </span>
                                     </td>
                                     <td className="p-4">

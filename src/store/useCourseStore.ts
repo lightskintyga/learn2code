@@ -1,6 +1,21 @@
 import { create } from 'zustand';
 import { api, CourseDto, LessonDto, TaskDto, GroupDto, ProgressDto, CreateCourseRequest, UpdateCourseRequest, CreateLessonRequest, UpdateLessonRequest, CreateTaskRequest, UpdateTaskRequest, CreateGroupRequest, UpdateGroupRequest } from '@/services/api';
 
+const getErrorMessage = (error: unknown, fallback: string): string => {
+    if (error && typeof error === 'object' && 'message' in error) {
+        const message = (error as { message?: unknown }).message;
+        if (typeof message === 'string' && message.trim()) {
+            return message;
+        }
+    }
+
+    if (error instanceof Error && error.message.trim()) {
+        return error.message;
+    }
+
+    return fallback;
+};
+
 interface CourseStore {
     // Состояние
     courses: CourseDto[];
@@ -83,7 +98,7 @@ export const useCourseStore = create<CourseStore>((set, get) => ({
             const courses = await api.getCourses();
             set({ courses, isLoading: false });
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Ошибка загрузки курсов';
+            const errorMessage = getErrorMessage(error, 'Ошибка загрузки курсов');
             set({ error: errorMessage, isLoading: false });
         }
     },
@@ -94,7 +109,7 @@ export const useCourseStore = create<CourseStore>((set, get) => ({
             const course = await api.getCourse(id);
             set({ currentCourse: course, isLoading: false });
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Ошибка загрузки курса';
+            const errorMessage = getErrorMessage(error, 'Ошибка загрузки курса');
             set({ error: errorMessage, isLoading: false });
         }
     },
@@ -109,7 +124,7 @@ export const useCourseStore = create<CourseStore>((set, get) => ({
             }));
             return course;
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Ошибка создания курса';
+            const errorMessage = getErrorMessage(error, 'Ошибка создания курса');
             set({ error: errorMessage, isLoading: false });
             return null;
         }
@@ -128,7 +143,7 @@ export const useCourseStore = create<CourseStore>((set, get) => ({
             }));
             return course;
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Ошибка обновления курса';
+            const errorMessage = getErrorMessage(error, 'Ошибка обновления курса');
             set({ error: errorMessage, isLoading: false });
             return null;
         }
@@ -145,7 +160,7 @@ export const useCourseStore = create<CourseStore>((set, get) => ({
             }));
             return true;
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Ошибка удаления курса';
+            const errorMessage = getErrorMessage(error, 'Ошибка удаления курса');
             set({ error: errorMessage, isLoading: false });
             return false;
         }
@@ -160,7 +175,7 @@ export const useCourseStore = create<CourseStore>((set, get) => ({
             const lessons = await api.getLessons(courseId);
             set({ lessons, isLoading: false });
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Ошибка загрузки уроков';
+            const errorMessage = getErrorMessage(error, 'Ошибка загрузки уроков');
             set({ error: errorMessage, isLoading: false });
         }
     },
@@ -171,7 +186,7 @@ export const useCourseStore = create<CourseStore>((set, get) => ({
             const lesson = await api.getLesson(id);
             set({ currentLesson: lesson, isLoading: false });
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Ошибка загрузки урока';
+            const errorMessage = getErrorMessage(error, 'Ошибка загрузки урока');
             set({ error: errorMessage, isLoading: false });
         }
     },
@@ -186,7 +201,7 @@ export const useCourseStore = create<CourseStore>((set, get) => ({
             }));
             return lesson;
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Ошибка создания урока';
+            const errorMessage = getErrorMessage(error, 'Ошибка создания урока');
             set({ error: errorMessage, isLoading: false });
             return null;
         }
@@ -205,7 +220,7 @@ export const useCourseStore = create<CourseStore>((set, get) => ({
             }));
             return lesson;
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Ошибка обновления урока';
+            const errorMessage = getErrorMessage(error, 'Ошибка обновления урока');
             set({ error: errorMessage, isLoading: false });
             return null;
         }
@@ -222,7 +237,7 @@ export const useCourseStore = create<CourseStore>((set, get) => ({
             }));
             return true;
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Ошибка удаления урока';
+            const errorMessage = getErrorMessage(error, 'Ошибка удаления урока');
             set({ error: errorMessage, isLoading: false });
             return false;
         }
@@ -237,7 +252,7 @@ export const useCourseStore = create<CourseStore>((set, get) => ({
             const tasks = await api.getTasks(lessonId);
             set({ tasks, isLoading: false });
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Ошибка загрузки заданий';
+            const errorMessage = getErrorMessage(error, 'Ошибка загрузки заданий');
             set({ error: errorMessage, isLoading: false });
         }
     },
@@ -248,7 +263,7 @@ export const useCourseStore = create<CourseStore>((set, get) => ({
             const task = await api.getTask(id);
             set({ currentTask: task, isLoading: false });
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Ошибка загрузки задания';
+            const errorMessage = getErrorMessage(error, 'Ошибка загрузки задания');
             set({ error: errorMessage, isLoading: false });
         }
     },
@@ -263,7 +278,7 @@ export const useCourseStore = create<CourseStore>((set, get) => ({
             }));
             return task;
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Ошибка создания задания';
+            const errorMessage = getErrorMessage(error, 'Ошибка создания задания');
             set({ error: errorMessage, isLoading: false });
             return null;
         }
@@ -282,7 +297,7 @@ export const useCourseStore = create<CourseStore>((set, get) => ({
             }));
             return task;
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Ошибка обновления задания';
+            const errorMessage = getErrorMessage(error, 'Ошибка обновления задания');
             set({ error: errorMessage, isLoading: false });
             return null;
         }
@@ -299,7 +314,7 @@ export const useCourseStore = create<CourseStore>((set, get) => ({
             }));
             return true;
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Ошибка удаления задания';
+            const errorMessage = getErrorMessage(error, 'Ошибка удаления задания');
             set({ error: errorMessage, isLoading: false });
             return false;
         }
@@ -314,7 +329,7 @@ export const useCourseStore = create<CourseStore>((set, get) => ({
             const groups = await api.getGroups();
             set({ groups, isLoading: false });
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Ошибка загрузки групп';
+            const errorMessage = getErrorMessage(error, 'Ошибка загрузки групп');
             set({ error: errorMessage, isLoading: false });
         }
     },
@@ -325,7 +340,7 @@ export const useCourseStore = create<CourseStore>((set, get) => ({
             const group = await api.getGroup(id);
             set({ currentGroup: group, isLoading: false });
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Ошибка загрузки группы';
+            const errorMessage = getErrorMessage(error, 'Ошибка загрузки группы');
             set({ error: errorMessage, isLoading: false });
         }
     },
@@ -340,7 +355,7 @@ export const useCourseStore = create<CourseStore>((set, get) => ({
             }));
             return group;
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Ошибка создания группы';
+            const errorMessage = getErrorMessage(error, 'Ошибка создания группы');
             set({ error: errorMessage, isLoading: false });
             return null;
         }
@@ -357,7 +372,7 @@ export const useCourseStore = create<CourseStore>((set, get) => ({
             }));
             return group;
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Ошибка обновления группы';
+            const errorMessage = getErrorMessage(error, 'Ошибка обновления группы');
             set({ error: errorMessage, isLoading: false });
             return null;
         }
@@ -374,7 +389,7 @@ export const useCourseStore = create<CourseStore>((set, get) => ({
             }));
             return true;
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Ошибка удаления группы';
+            const errorMessage = getErrorMessage(error, 'Ошибка удаления группы');
             set({ error: errorMessage, isLoading: false });
             return false;
         }
@@ -394,7 +409,7 @@ export const useCourseStore = create<CourseStore>((set, get) => ({
             }
             return true;
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Ошибка добавления студента';
+            const errorMessage = getErrorMessage(error, 'Ошибка добавления студента');
             set({ error: errorMessage, isLoading: false });
             return false;
         }
@@ -414,7 +429,7 @@ export const useCourseStore = create<CourseStore>((set, get) => ({
             }
             return true;
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Ошибка удаления студента';
+            const errorMessage = getErrorMessage(error, 'Ошибка удаления студента');
             set({ error: errorMessage, isLoading: false });
             return false;
         }
@@ -429,7 +444,7 @@ export const useCourseStore = create<CourseStore>((set, get) => ({
             const progress = await api.getStudentProgress(studentId);
             set({ progress, isLoading: false });
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Ошибка загрузки прогресса';
+            const errorMessage = getErrorMessage(error, 'Ошибка загрузки прогресса');
             set({ error: errorMessage, isLoading: false });
         }
     },
@@ -441,7 +456,7 @@ export const useCourseStore = create<CourseStore>((set, get) => ({
             set({ isLoading: false });
             return progress;
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Ошибка загрузки прогресса задания';
+            const errorMessage = getErrorMessage(error, 'Ошибка загрузки прогресса задания');
             set({ error: errorMessage, isLoading: false });
             return null;
         }
