@@ -271,14 +271,30 @@ class ApiService {
 
     private async handleResponse<T>(response: Response): Promise<ApiResponse<T>> {
         if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
+            const contentType = response.headers.get('content-type') || '';
+            const fallbackMessage = `HTTP ${response.status}: ${response.statusText}`;
+            let message = fallbackMessage;
+
+            if (contentType.includes('application/json')) {
+                const errorData = await response.json().catch(() => ({}));
+                if (typeof errorData === 'string') {
+                    message = errorData;
+                } else if (errorData && typeof errorData === 'object') {
+                    const data = errorData as { message?: string; title?: string };
+                    message = data.message || data.title || fallbackMessage;
+                }
+            } else {
+                const errorText = await response.text().catch(() => '');
+                message = errorText || fallbackMessage;
+            }
+
             throw {
-                message: errorData.message || `HTTP ${response.status}: ${response.statusText}`,
+                message,
                 status: response.status,
             } as ApiError;
         }
 
-        // Для 204 No Content возвращаем пустой объект
+        // Для пустых успешных ответов (204 или 200 OK без body) возвращаем пустой объект
         if (response.status === 204) {
             return {
                 data: {} as T,
@@ -287,7 +303,9 @@ class ApiService {
             };
         }
 
-        const data = await response.json();
+        const responseText = await response.text();
+        const data = responseText.trim() ? (JSON.parse(responseText) as T) : ({} as T);
+
         return {
             data,
             success: true,
