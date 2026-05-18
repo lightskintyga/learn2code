@@ -9,8 +9,8 @@ import { api, UserDto } from '@/services/api';
 // Конвертер UserDto в User
 const convertUserDto = (userDto: UserDto): User => ({
     id: userDto.id,
-    username: userDto.email?.split('@')[0] || '',
-    email: userDto.email || '',
+    username: userDto.login || '',
+    email: '', // login используется вместо email
     role: (userDto.role?.toLowerCase() || 'student') as UserRole,
     displayName: userDto.displayName || '',
     createdAt: userDto.createdAt,
@@ -54,7 +54,7 @@ export const useAuthStore = create<AuthStore>()(
                 try {
                     // Используем API для входа
                     const response = await api.login({
-                        email: credentials.email,
+                        login: credentials.login,
                         password: credentials.password,
                     });
 

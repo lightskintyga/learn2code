@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { api, CourseDto, LessonDto, TaskDto, GroupDto, ProgressDto, CreateCourseRequest, UpdateCourseRequest, CreateLessonRequest, UpdateLessonRequest, CreateTaskRequest, UpdateTaskRequest, CreateGroupRequest, UpdateGroupRequest } from '@/services/api';
+import { api, CourseDto, LessonDto, TaskDto, GroupDto, ProgressDto, CreateCourseRequest, UpdateCourseRequest, CreateLessonRequest, UpdateLessonRequest, CreateTaskDraftRequest, UpdateTaskRequest, CreateGroupRequest, UpdateGroupRequest } from '@/services/api';
 
 interface CourseStore {
     // Состояние
@@ -37,9 +37,12 @@ interface CourseStore {
     // Задания
     fetchTasks: (lessonId: string) => Promise<void>;
     fetchTask: (id: string) => Promise<void>;
-    createTask: (data: CreateTaskRequest) => Promise<TaskDto | null>;
+    createTaskDraft: (data: CreateTaskDraftRequest) => Promise<TaskDto | null>;
     updateTask: (id: string, data: UpdateTaskRequest) => Promise<TaskDto | null>;
     deleteTask: (id: string) => Promise<boolean>;
+    publishTask: (id: string) => Promise<TaskDto | null>;
+    unpublishTask: (id: string) => Promise<TaskDto | null>;
+    testSolution: (id: string, code: string) => Promise<{ success: boolean; error?: string } | null>;
     setCurrentTask: (task: TaskDto | null) => void;
 
     // Группы
@@ -253,17 +256,17 @@ export const useCourseStore = create<CourseStore>((set, get) => ({
         }
     },
 
-    createTask: async (data: CreateTaskRequest) => {
+    createTaskDraft: async (data: CreateTaskDraftRequest) => {
         set({ isLoading: true, error: null });
         try {
-            const task = await api.createTask(data);
+            const task = await api.createTaskDraft(data);
             set((state) => ({
                 tasks: [...state.tasks, task],
                 isLoading: false,
             }));
             return task;
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Ошибка создания задания';
+            const errorMessage = error instanceof Error ? error.message : 'Ошибка создания черновика задания';
             set({ error: errorMessage, isLoading: false });
             return null;
         }
@@ -302,6 +305,60 @@ export const useCourseStore = create<CourseStore>((set, get) => ({
             const errorMessage = error instanceof Error ? error.message : 'Ошибка удаления задания';
             set({ error: errorMessage, isLoading: false });
             return false;
+        }
+    },
+
+    publishTask: async (id: string) => {
+        set({ isLoading: true, error: null });
+        try {
+            const task = await api.publishTask(id);
+            set((state) => ({
+                tasks: state.tasks.map((t) => (t.id === id ? task : t)),
+                currentTask: state.currentTask?.id === id ? task : state.currentTask,
+                isLoading: false,
+            }));
+            return task;
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Ошибка публикации задания';
+            set({ error: errorMessage, isLoading: false });
+            return null;
+        }
+    },
+
+    unpublishTask: async (id: string) => {
+        set({ isLoading: true, error: null });
+        try {
+            const task = await api.unpublishTask(id);
+            set((state) => ({
+                tasks: state.tasks.map((t) => (t.id === id ? task : t)),
+                currentTask: state.currentTask?.id === id ? task : state.currentTask,
+                isLoading: false,
+            }));
+            return task;
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Ошибка снятия с публикации';
+            set({ error: errorMessage, isLoading: false });
+            return null;
+        }
+    },
+
+    testSolution: async (id: string, code: string) => {
+        set({ isLoading: true, error: null });
+        try {
+            const { currentTask } = get();
+            if (!currentTask) throw new Error('Задание не загружено');
+            
+            const result = await api.testSolution(id, {
+                code,
+                initialState: currentTask.initialState,
+                config: currentTask.config,
+            });
+            set({ isLoading: false });
+            return { success: result.success, error: result.error || undefined };
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Ошибка тестирования решения';
+            set({ error: errorMessage, isLoading: false });
+            return null;
         }
     },
 

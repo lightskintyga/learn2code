@@ -4,7 +4,11 @@ import { useEditorStore } from '@/store/useEditorStore';
 import { runtime, RuntimeState, RuntimeSprite } from '@/engine/Runtime';
 import { STAGE_WIDTH, STAGE_HEIGHT } from '@/utils/constants';
 
-const StageCanvas: React.FC = () => {
+interface StageCanvasProps {
+    readOnly?: boolean;
+}
+
+const StageCanvas: React.FC<StageCanvasProps> = ({ readOnly = false }) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const { currentProject } = useProjectStore();
@@ -193,6 +197,9 @@ const StageCanvas: React.FC = () => {
 
         runtime.handleMouseMove(mouseX, mouseY);
 
+        // В readOnly режиме не обрабатываем drag
+        if (readOnly) return;
+
         if (draggedSpriteId) {
             const sprite = currentProject?.sprites.find(s => s.id === draggedSpriteId);
             if (!sprite) return;
@@ -215,6 +222,9 @@ const StageCanvas: React.FC = () => {
         const clickY = STAGE_HEIGHT / 2 - (e.clientY - rect.top) * scaleY;
 
         runtime.handleMouseDown();
+
+        // В readOnly режиме не начинаем drag
+        if (readOnly) return;
 
         // Проверяем клик по спрайтам и начинаем drag
         const project = currentProject;
@@ -290,7 +300,7 @@ const StageCanvas: React.FC = () => {
                 ref={canvasRef}
                 width={STAGE_WIDTH}
                 height={STAGE_HEIGHT}
-                className="w-full h-full stage-canvas cursor-pointer"
+                className={`w-full h-full stage-canvas ${readOnly ? 'cursor-default' : 'cursor-pointer'}`}
                 onMouseMove={handleMouseMove}
                 onMouseDown={handleMouseDown}
                 onMouseUp={handleMouseUp}

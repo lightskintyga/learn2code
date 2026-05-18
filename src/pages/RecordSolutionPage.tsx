@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import * as Blockly from 'blockly';
 import { pythonGenerator } from 'blockly/python';
@@ -7,11 +7,11 @@ import { useToastStore } from '@/store/useToastStore';
 import { useProjectStore } from '@/store/useProjectStore';
 import { useEditorStore } from '@/store/useEditorStore';
 import { runtime } from '@/engine/Runtime';
-import { Loader2, ChevronLeft, Square, Save, AlertCircle, CheckCircle } from 'lucide-react';
+import { Loader2, ChevronLeft, Save, AlertCircle, CheckCircle, Flag, RotateCcw, Lock } from 'lucide-react';
 import { toolboxConfig } from '@/blockly/toolbox';
 import { ScratchTheme } from '@/blockly/theme';
 import { loadWorkspaceFromXml, getWorkspaceXml } from '@/blockly/setup';
-import '@/blockly/generators/python'; // Регистрируем Python генераторы
+import '@/blockly/generators/python';
 import StageCanvas from '@/components/stage/StageCanvas';
 import SpriteList from '@/components/sprites/SpriteList';
 import SpriteInfo from '@/components/sprites/SpriteInfo';
@@ -63,41 +63,14 @@ const filterToolbox = (categories: string[]) => {
     return fullToolbox;
 };
 
-// Очистка workspace от блоков неразрешенных категорий
-const clearDisallowedBlocks = (workspace: Blockly.WorkspaceSvg, allowedCategories: string[]) => {
-    const allBlocks = workspace.getAllBlocks(false);
-    const allowedTypes = new Set<string>();
-
-    // Собираем разрешенные типы блоков
-    const toolbox = filterToolbox(allowedCategories);
-    const collectBlockTypes = (contents: any[]) => {
-        for (const item of contents) {
-            if (item.kind === 'block' && item.type) {
-                allowedTypes.add(item.type);
-            }
-            if (item.contents) {
-                collectBlockTypes(item.contents);
-            }
-        }
-    };
-    collectBlockTypes(toolbox.contents);
-
-    // Удаляем неразрешенные блоки
-    allBlocks.forEach(block => {
-        if (!allowedTypes.has(block.type)) {
-            block.dispose();
-        }
-    });
-};
-
 // Интерфейс для draft данных
 interface TaskDraft {
     title: string;
     description: string;
     hint: string;
-    expectedOutput: string;
-    checkLevel: 'State' | 'Trace' | 'Ast';
     selectedCategories: string[];
+    sprites?: any[];
+    config?: { gridWidth: number; gridHeight: number };
 }
 
 const RecordSolutionPage: React.FC = () => {
@@ -109,17 +82,22 @@ const RecordSolutionPage: React.FC = () => {
 
     const { addToast } = useToastStore();
     const [isSaving, setIsSaving] = useState(false);
+    const [isRunning, setIsRunning] = useState(false);
+    const [isTesting, setIsTesting] = useState(false);
     const [isLoadingTask, setIsLoadingTask] = useState(true);
     const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
     const [draftData, setDraftData] = useState<TaskDraft | null>(null);
+    const [isLocked, setIsLocked] = useState(false);
+    const [lockedState, setLockedState] = useState<any>(null);
 
     const {
         currentTask,
         fetchTask,
+        testSolution,
     } = useCourseStore();
 
-    const { currentProject, createProject } = useProjectStore();
-    const { activeTab, selectedSpriteId, isStageSelected, isRunning, setRunning, selectSprite } = useEditorStore();
+    const { currentProject, createProject, setProject } = useProjectStore();
+    const { activeTab, selectSprite } = useEditorStore();
 
     // Blockly refs
     const blocklyRef = useRef<HTMLDivElement>(null);
@@ -138,6 +116,10 @@ const RecordSolutionPage: React.FC = () => {
                         const draft: TaskDraft = JSON.parse(draftJson);
                         setDraftData(draft);
                         setSelectedCategories(draft.selectedCategories || []);
+                        // Загружаем спрайты из draft если есть
+                        if (draft.sprites && currentProject) {
+                            // TODO: Загрузить спрайты в проект
+                        }
                     } catch (e) {
                         console.error('Failed to parse draft:', e);
                     }
@@ -154,23 +136,6 @@ const RecordSolutionPage: React.FC = () => {
         loadData();
     }, [isDraftMode, isNewTask, taskId, fetchTask]);
 
-    // Загружаем выбранные категории
-    useEffect(() => {
-        if (isDraftMode && draftData?.selectedCategories) {
-            setSelectedCategories(draftData.selectedCategories);
-        } else if (currentTask?.configJson) {
-            // Парсим configJson для получения категорий блоков
-            try {
-                const config = JSON.parse(currentTask.configJson);
-                if (config.blockCategories) {
-                    setSelectedCategories(config.blockCategories);
-                }
-            } catch (e) {
-                console.error('Failed to parse configJson:', e);
-            }
-        }
-    }, [currentTask, draftData, isDraftMode]);
-
     // Инициализация проекта
     useEffect(() => {
         if (!currentProject) {
@@ -180,12 +145,12 @@ const RecordSolutionPage: React.FC = () => {
 
     // Выбираем первый спрайт
     useEffect(() => {
-        if (currentProject && !selectedSpriteId && currentProject.sprites.length > 0) {
+        if (currentProject && currentProject.sprites.length > 0) {
             selectSprite(currentProject.sprites[0].id);
         }
-    }, [currentProject?.id, selectSprite, selectedSpriteId]);
+    }, [currentProject?.id, selectSprite]);
 
-    // Инициализация Blockly (когда появятся категории)
+    // Инициализация Blockly
     useEffect(() => {
         if (!blocklyRef.current || hasInitializedRef.current) return;
         if (selectedCategories.length === 0) return;
@@ -240,10 +205,9 @@ const RecordSolutionPage: React.FC = () => {
         };
     }, [selectedCategories, isDraftMode, taskId]);
 
-    // Обновляем размер Blockly при смене таба (когда возвращаемся на code)
+    // Обновляем размер Blockly при смене таба
     useEffect(() => {
         if (activeTab === 'code' && workspaceRef.current && hasInitializedRef.current) {
-            // Небольшая задержка чтобы DOM обновился
             requestAnimationFrame(() => {
                 setTimeout(() => {
                     Blockly.svgResize(workspaceRef.current!);
@@ -252,23 +216,73 @@ const RecordSolutionPage: React.FC = () => {
         }
     }, [activeTab]);
 
-    const handleStart = async () => {
+    // Фиксация начального состояния
+    const handleLock = () => {
         if (!currentProject) return;
+        
+        if (!isLocked) {
+            // Сохраняем текущее состояние
+            setLockedState({
+                project: JSON.parse(JSON.stringify(currentProject)),
+            });
+            setIsLocked(true);
+            addToast('Начальное состояние зафиксировано', 'success');
+        } else {
+            setIsLocked(false);
+            addToast('Фиксация снята', 'info');
+        }
+    };
 
+    // Сброс к зафиксированному состоянию
+    const handleReset = () => {
+        if (lockedState && lockedState.project) {
+            setProject(lockedState.project);
+            addToast('Состояние сброшено', 'info');
+        } else {
+            addToast('Нет зафиксированного состояния', 'warning');
+        }
+    };
+
+    // Запуск кода с тестированием через API
+    const handleRunWithTest = async () => {
+        if (!workspaceRef.current || !currentProject) return;
+
+        // Генерируем Python код из блоков
+        const pythonCode = pythonGenerator.workspaceToCode(workspaceRef.current);
+        
+        if (!pythonCode.trim()) {
+            addToast('Нет кода для выполнения', 'error');
+            return;
+        }
+
+        setIsRunning(true);
+        
+        // Запускаем локально
         runtime.loadProject(currentProject);
-        setRunning(true);
         try {
             await runtime.start();
         } catch (e) {
             console.error('Runtime error:', e);
         }
-        setRunning(false);
-    };
-
-    const handleStop = () => {
-        runtime.stop();
-        setRunning(false);
-        if (currentProject) runtime.loadProject(currentProject);
+        
+        // Если есть taskId, тестируем через API
+        if (taskId && !isNewTask) {
+            setIsTesting(true);
+            try {
+                const result = await testSolution(taskId, pythonCode);
+                if (result?.success) {
+                    addToast('✅ Решение прошло тестирование на сервере', 'success');
+                } else {
+                    addToast(result?.error || '❌ Решение не прошло тестирование', 'error');
+                }
+            } catch (e) {
+                console.error('API test error:', e);
+            } finally {
+                setIsTesting(false);
+            }
+        }
+        
+        setIsRunning(false);
     };
 
     const handleSaveSolution = async () => {
@@ -307,7 +321,6 @@ const RecordSolutionPage: React.FC = () => {
                 localStorage.setItem(`task_draft_with_solution`, JSON.stringify(draftWithSolution));
 
                 addToast('Эталонное решение сохранено', 'success');
-                // Возвращаемся на страницу редактирования задания (без создания на бэкенде)
                 navigate(`/teacher/course/${courseId}/lesson/${lessonId}/task/new/edit?solution=${solutionId}`);
             } else if (taskId) {
                 // Сохраняем для существующего задания
@@ -380,9 +393,7 @@ const RecordSolutionPage: React.FC = () => {
                 <div className="flex-1 flex items-center justify-center">
                     <div className="bg-amber-50 border border-amber-200 rounded-[16px] p-8 max-w-md text-center">
                         <AlertCircle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
-                        <h2 className="text-lg font-bold text-amber-800 mb-2">
-                            Нельзя записать решение
-                        </h2>
+                        <h2 className="text-lg font-bold text-amber-800 mb-2">Нельзя записать решение</h2>
                         <p className="text-amber-700 text-sm mb-4">
                             Перед записью решения необходимо заполнить:<br />
                             • Название задания<br />
@@ -403,7 +414,7 @@ const RecordSolutionPage: React.FC = () => {
 
     return (
         <div className="h-screen flex flex-col overflow-hidden bg-[#F8FAFB]">
-            {/* Header - только навигация и кнопка сохранения */}
+            {/* Header */}
             <header className="bg-white border-b border-[#EEF0F4] flex items-center justify-between px-4 py-2">
                 <div className="flex items-center gap-4">
                     <button
@@ -423,14 +434,40 @@ const RecordSolutionPage: React.FC = () => {
                         </div>
                     </div>
                 </div>
-                <button
-                    onClick={handleSaveSolution}
-                    disabled={isSaving}
-                    className="flex items-center gap-2 bg-[#734DE6] text-white px-4 py-2 rounded-[10px] text-sm font-medium hover:bg-[#5a3eb8] transition-colors disabled:opacity-50"
-                >
-                    {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                    Сохранить решение
-                </button>
+                
+                <div className="flex items-center gap-2">
+                    {/* Lock/Reset Controls */}
+                    <button
+                        onClick={handleLock}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-[8px] text-sm font-medium transition-colors ${
+                            isLocked
+                                ? 'bg-amber-100 text-amber-700 border border-amber-200'
+                                : 'bg-[#F8FAFB] text-[#1A1D2D] border border-[#E0E4EB] hover:bg-gray-50'
+                        }`}
+                    >
+                        {isLocked ? <Lock className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
+                        {isLocked ? 'Зафиксировано' : 'Зафиксировать'}
+                    </button>
+                    
+                    {isLocked && (
+                        <button
+                            onClick={handleReset}
+                            className="flex items-center gap-2 px-3 py-2 rounded-[8px] text-sm font-medium bg-[#F8FAFB] text-[#1A1D2D] border border-[#E0E4EB] hover:bg-gray-50"
+                        >
+                            <RotateCcw className="w-4 h-4" />
+                            Сброс
+                        </button>
+                    )}
+
+                    <button
+                        onClick={handleSaveSolution}
+                        disabled={isSaving}
+                        className="flex items-center gap-2 bg-[#734DE6] text-white px-4 py-2 rounded-[10px] text-sm font-medium hover:bg-[#5a3eb8] transition-colors disabled:opacity-50"
+                    >
+                        {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                        Сохранить решение
+                    </button>
+                </div>
             </header>
 
             {/* Main Content */}
@@ -458,7 +495,10 @@ const RecordSolutionPage: React.FC = () => {
                         <div className="p-3 bg-blue-50 rounded-[12px] border border-blue-100">
                             <h4 className="text-sm font-medium text-blue-800 mb-2">Инструкция</h4>
                             <p className="text-xs text-blue-700">
-                                Соберите программу, которая будет эталонным решением. Ученик должен собрать такую же программу.
+                                1. Нажмите "Зафиксировать" для сохранения начального состояния<br/>
+                                2. Соберите программу-решение<br/>
+                                3. Нажмите 🚩 для тестирования<br/>
+                                4. Сохраните решение
                             </p>
                         </div>
                     </div>
@@ -468,7 +508,7 @@ const RecordSolutionPage: React.FC = () => {
                 <div className="flex-1 flex flex-col min-w-0 bg-[#F8FAFB]">
                     <TabBar />
                     <div className="flex-1 overflow-hidden relative">
-                        {/* Все вкладки рендерятся но скрываются через CSS, чтобы Blockly не размонтировался */}
+                        {/* Все вкладки рендерятся но скрываются через CSS */}
                         <div className="absolute inset-0" style={{ display: activeTab === 'code' ? 'block' : 'none' }}>
                             <div ref={blocklyRef} className="w-full h-full" />
                         </div>
@@ -486,30 +526,34 @@ const RecordSolutionPage: React.FC = () => {
                     {/* Stage Controls */}
                     <div className="flex items-center justify-between px-4 py-2 border-b border-[#EEF0F4]">
                         <div className="flex items-center gap-2">
+                            {/* Flag Button (Run with Test) */}
                             <button
-                                onClick={handleStart}
-                                className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${
-                                    isRunning
+                                onClick={handleRunWithTest}
+                                disabled={isRunning || !isLocked}
+                                className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
+                                    isRunning || isTesting
                                         ? 'bg-green-100 text-green-600'
-                                        : 'bg-green-500 text-white hover:bg-green-600'
+                                        : !isLocked
+                                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                            : 'bg-green-500 text-white hover:bg-green-600 shadow-lg shadow-green-200'
                                 }`}
-                                title="Запустить"
+                                title={!isLocked ? 'Сначала зафиксируйте начальное состояние' : 'Запустить и протестировать'}
                             >
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" className="ml-0.5">
-                                    <path d="M8 5v14l11-7z"/>
-                                </svg>
+                                {isTesting ? (
+                                    <Loader2 className="w-5 h-5 animate-spin" />
+                                ) : (
+                                    <Flag size={20} fill="currentColor" />
+                                )}
                             </button>
-                            <button
-                                onClick={handleStop}
-                                className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${
-                                    !isRunning
-                                        ? 'bg-red-100 text-red-400'
-                                        : 'bg-red-500 text-white hover:bg-red-600'
-                                }`}
-                                title="Остановить"
-                            >
-                                <Square size={14} fill="currentColor" />
-                            </button>
+                        </div>
+                        
+                        {/* Lock Status */}
+                        <div className={`text-xs flex items-center gap-1 ${isLocked ? 'text-amber-600' : 'text-gray-400'}`}>
+                            {isLocked ? (
+                                <><Lock className="w-3 h-3" /> Зафиксировано</>
+                            ) : (
+                                <><Lock className="w-3 h-3" /> Не зафиксировано</>
+                            )}
                         </div>
                     </div>
 

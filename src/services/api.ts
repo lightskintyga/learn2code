@@ -18,7 +18,7 @@ export interface ApiError {
 
 export interface UserDto {
     id: string;
-    email: string | null;
+    login: string | null;
     displayName: string | null;
     role: string | null;
     createdAt: string;
@@ -46,10 +46,12 @@ export interface TaskDto {
     description: string | null;
     order: number;
     lessonId: string;
-    referenceCode: string | null;
-    initialStateJson: string | null;
-    expectedStateJson: string | null;
-    configJson: string | null;
+    pipelineState: TaskPipelineState;
+    initialState: SceneStateDto;
+    expectedFinalState: SceneStateDto;
+    solutionTrace: ExecutionTraceDto;
+    config: TaskConfigDto;
+    solutionCode: string | null;
 }
 
 export interface GroupDto {
@@ -73,6 +75,36 @@ export interface ProgressDto {
 export interface BlockMapping {
     blockId: string | null;
     type: string | null;
+}
+
+export type TaskPipelineState = 'draft' | 'published';
+
+export type SpriteType = 'cat' | 'apple' | 'wall';
+
+export interface SpriteStateDto {
+    type: SpriteType;
+    gridX: number;
+    gridY: number;
+    visible: boolean;
+}
+
+export interface SceneStateDto {
+    sprites: SpriteStateDto[] | null;
+}
+
+export interface ExecutionEventDto {
+    step: number;
+    eventType: string | null;
+    details: Record<string, unknown> | null;
+}
+
+export interface ExecutionTraceDto {
+    events: ExecutionEventDto[] | null;
+}
+
+export interface TaskConfigDto {
+    gridWidth: number;
+    gridHeight: number;
 }
 
 export interface CodeIssueDto {
@@ -106,7 +138,7 @@ export interface SubmissionDto {
 // ============ Request Типы из Swagger ============
 
 export interface LoginRequest {
-    email: string | null;
+    login: string | null;
     password: string | null;
 }
 
@@ -145,27 +177,33 @@ export interface UpdateLessonRequest {
     title: string | null;
     description: string | null;
     order: number | null;
+    courseId: string | null;
 }
 
-export interface CreateTaskRequest {
-    title: string | null;
-    description: string | null;
-    referenceCode: string | null;
-    initialStateJson: string | null;
-    expectedStateJson: string | null;
-    configJson: string | null;
+export interface CreateTaskDraftRequest {
+    lessonId: string | null;
     order: number;
-    lessonId: string;
 }
 
 export interface UpdateTaskRequest {
     title: string | null;
     description: string | null;
-    referenceCode: string | null;
-    initialStateJson: string | null;
-    expectedStateJson: string | null;
-    configJson: string | null;
     order: number | null;
+    config: TaskConfigDto;
+    initialState: SceneStateDto;
+    solutionCode: string | null;
+}
+
+export interface TestSolutionRequest {
+    code: string | null;
+    initialState: SceneStateDto;
+    config: TaskConfigDto;
+}
+
+export interface TestSolutionResponse {
+    finalState: SceneStateDto;
+    success: boolean;
+    error: string | null;
 }
 
 export interface CreateGroupRequest {
@@ -193,14 +231,14 @@ export interface SubmitSolutionRequest {
 }
 
 export interface CreateUserRequest {
-    email: string | null;
-    displayName: string | null;
+    login: string | null;
     password: string | null;
+    displayName: string | null;
     role: string | null;
 }
 
 export interface UpdateUserRequest {
-    email: string | null;
+    login: string | null;
     displayName: string | null;
     role: string | null;
 }
@@ -426,8 +464,8 @@ class ApiService {
         return response.data;
     }
 
-    async createTask(data: CreateTaskRequest): Promise<TaskDto> {
-        const response = await this.post<TaskDto>('/Tasks', data);
+    async createTaskDraft(data: CreateTaskDraftRequest): Promise<TaskDto> {
+        const response = await this.post<TaskDto>('/Tasks/draft', data);
         return response.data;
     }
 
@@ -437,6 +475,21 @@ class ApiService {
 
     async deleteTask(id: string): Promise<void> {
         await this.delete(`/Tasks/${id}`);
+    }
+
+    async testSolution(id: string, data: TestSolutionRequest): Promise<TestSolutionResponse> {
+        const response = await this.post<TestSolutionResponse>(`/Tasks/${id}/test-solution`, data);
+        return response.data;
+    }
+
+    async publishTask(id: string): Promise<TaskDto> {
+        const response = await this.post<TaskDto>(`/Tasks/${id}/publish`, {});
+        return response.data;
+    }
+
+    async unpublishTask(id: string): Promise<TaskDto> {
+        const response = await this.post<TaskDto>(`/Tasks/${id}/unpublish`, {});
+        return response.data;
     }
 
     // ============ Progress API (пути с заглавной буквы) ============
@@ -482,24 +535,6 @@ class ApiService {
     async getUser(id: string): Promise<UserDto> {
         const response = await this.get<UserDto>(`/Users/${id}`);
         return response.data;
-    }
-
-    async createUser(data: CreateUserRequest): Promise<UserDto> {
-        const response = await this.post<UserDto>('/Users', data);
-        return response.data;
-    }
-
-    async updateUser(id: string, data: UpdateUserRequest): Promise<UserDto> {
-        const response = await this.put<UserDto>(`/Users/${id}`, data);
-        return response.data;
-    }
-
-    async deleteUser(id: string): Promise<void> {
-        await this.delete(`/Users/${id}`);
-    }
-
-    async resetPassword(id: string, data: ResetPasswordRequest): Promise<void> {
-        await this.post(`/Users/${id}/reset-password`, data);
     }
 }
 
